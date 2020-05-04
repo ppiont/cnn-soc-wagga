@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon May  4 20:50:57 2020
+
+@author: peter
+"""
+
+import pandas as pd
+df = pd.read_csv("data/germany_targets.csv", index_col = 0).reset_index()
+df.head()
+
+import geopandas as gpd
+gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
+
+bbox = gdf.geometry.total_bounds
+
+# Import wcs
+from owslib.wcs import WebCoverageService
+
+
+# Create coverage object
+my_wcs = WebCoverageService('http://data.isric.org/geoserver/sg250m/wcs', version='2.0.1')
+
+# Get list of coverages
+for x in my_wcs.contents.keys():
+    if "orcdrc" in x.lower():
+        print(x)
+# print(my_wcs.contents.keys())
+
+# Get bbox
+my_wcs.contents['sg250m__ORCDRC_M_sl1_250m'].boundingboxes
+
+import tempfile
+import os
+import owslib.util
+import owslib.wcs as wcs
+import requests
+import shutil
+
+wcs_url = "http://data.isric.org/geoserver/sg250m/wcs"
+w = my_wcs
+c = w['sg250m__ORCDRC_M_sl1_250m']
+
+resx = 1000
+resy = 1000
+rfmt = "GeoTiff"
+rCRS = c.boundingboxes[0]["nativeSrs"]
+rBBOX = tuple(bbox)
+
+tmpdir = tempfile.gettempdir()
+fn = os.path.join(tmpdir,'test.tif')
+
+gc = w.getCoverage(identifier="sg250m__ORCDRC_M_sl1_250m", bbox=(6.13, 47.59, 14.79, 54.87), format="GeoTiff", crs='EPSG:4326', width=100, height=100)
+with open(fn, 'wb') as f:
+    f.write(gc.read())
