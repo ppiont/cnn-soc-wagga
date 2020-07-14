@@ -36,26 +36,41 @@ raster_array = np.asarray(raster.read(1))
 
 
 
-# load targets
+# Load targets
 df = pd.read_csv("germany_targets.csv", index_col = 0).reset_index()
 gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
-
-# gdf.plot()
-
-# gdf.crs
-# raster.crs
 gdf = gdf.to_crs(raster.crs.data)
 
 
+# STACK LAYERS
+##############################################################################
+import glob
+file_list = glob.glob('germany_covars/*.tif')
 
+# Read metadata of first file
+with rasterio.open(file_list[0]) as src0:
+    meta = src0.meta
+
+# Update meta to reflect the number of layers
+meta.update(count = len(file_list))
+
+# Read each layer and write it to stack
+with rasterio.open('stack.tif', 'w', **meta) as dst:
+    for id, layer in enumerate(file_list, start=1):
+        with rasterio.open(layer) as src1:
+            dst.write_band(id, src1.read(1))
+##############################################################################
+
+
+# EXTRACT WINDOWS AROUND TARGETS
+###############################################################################
 coord = (gdf.geometry[i].x, gdf.geometry[i].y)
     
-
 import rasterio as rio
 
 infile = r"germany_covars/CLM_CHE_BIO02.tif"
 outfile = r'test_{}.tif'
-coordinates = [(x,y) for x, y in zip(gdf.GPS_LONG, gdf.GPS_LAT)]
+coordinates = ((x,y) for x, y in zip(gdf.GPS_LONG, gdf.GPS_LAT))
 
 # NxN window
 N = 3
@@ -64,11 +79,11 @@ N = 3
 with rio.open(infile) as dataset:
 
     # Loop through list of coords
-    for i, (lon, lat) in enumerate(len(coordinates)):
+    for i, (lon, lat) in enumerate(coordinates):
 
         # Get pixel coordinates from map coordinates
         py, px = dataset.index(lon, lat)
-        print('Pixel Y, X coords: {}, {}'.format(py, px))
+        #print(f'Pixel Y, X coords: {py}, {px}')
 
         # Build an NxN window
         window = rio.windows.Window(px - N//2, py - N//2, N, N)
@@ -85,4 +100,6 @@ with rio.open(infile) as dataset:
 
         with rio.open(outfile.format(i), 'w', **meta) as dst:
             dst.write(clip)
+##############################################################################
+
 
