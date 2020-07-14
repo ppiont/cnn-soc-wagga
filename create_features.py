@@ -7,7 +7,6 @@ Created on Sun May 17 14:41:37 2020
 """
 
 import geopandas as gpd
-import pandas as pd
 import os
 import rasterio
 import rasterio.plot
@@ -17,8 +16,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 os.chdir("data/")
-!ls
-
 
 # open raster
 raster = rasterio.open("germany_covars/CLM_CHE_BIO02.tif")
@@ -89,36 +86,3 @@ with rio.open(infile) as dataset:
         with rio.open(outfile.format(i), 'w', **meta) as dst:
             dst.write(clip)
 
-
-
-
-
-
-# ENVELOPE BUFFER
-# gdf2 = gdf.copy()
-# gdf2.geometry = gdf.geometry.buffer(5000).envelope
-# gdf2.plot()
-
-
-# fig, ax = plt.subplots(figsize=(15, 15))
-# rasterio.plot.show(raster.read(1), extent=raster_extent, ax = ax)
-# gdf.plot(ax = ax, marker = ',', markersize = 3)
-
-
-
-
-# world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-# germany = world[world.name == "Germany"]
-# germany = germany.to_crs(raster.crs.data)
-# ax = germany.plot(
-#     color='white', edgecolor='black')
-# ax.grid(linestyle="--", lw="0.5", zorder=1)
-# ax.set_axisbelow(True)
-# ax.set_title("Spatial distribution of soil samples") ## FIX FONTS
-# plt.axis('scaled')
-
-# # Plot
-# gdf.plot(ax=ax, marker = '.', markersize = 1)
-
-# # plt.savefig("figures/spatial_distribution_of_soil_samples.pdf")
-# plt.show()
