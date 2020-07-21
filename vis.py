@@ -57,3 +57,23 @@ gdf.plot(ax=ax, marker = '.', markersize = 1)
 
 # plt.savefig("figures/spatial_distribution_of_soil_samples.pdf")
 plt.show()
+
+
+
+
+
+# # open raster
+# raster = rasterio.open("germany_covars/CLM_CHE_BIO02.tif")
+
+# # plot raster
+# plt.imshow(raster.read(1))
+
+# # recast extent array to match matplotlib's
+# raster_extent = np.asarray(raster.bounds)[[0,2,1,3]]
+
+# # plot raster properly with coord axes
+# plt.imshow(raster.read(1), cmap='hot', extent=raster_extent)
+
+# # convert band to numpy array
+# raster_array = np.asarray(raster.read(1))
+

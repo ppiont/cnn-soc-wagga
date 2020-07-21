@@ -7,8 +7,9 @@ Created on Sun May 17 14:41:37 2020
 """
 
 import geopandas as gpd
+import pandas as pd
 import os
-import rasterio
+import rasterio as rio
 import rasterio.plot
 import rasterio.features
 import rasterio.warp
@@ -17,29 +18,14 @@ import numpy as np
 
 os.chdir("data/")
 
-# open raster
+# open raster to get crs
 raster = rasterio.open("germany_covars/CLM_CHE_BIO02.tif")
-
-# plot raster
-plt.imshow(raster.read(1))
-
-# recast extent array to match matplotlib's
-raster_extent = np.asarray(raster.bounds)[[0,2,1,3]]
-
-# plot raster properly with coord axes
-plt.imshow(raster.read(1), cmap='hot', extent=raster_extent)
-
-# convert band to numpy array
-raster_array = np.asarray(raster.read(1))
-
-
-
-
 
 # Load targets
 df = pd.read_csv("germany_targets.csv", index_col = 0).reset_index()
 gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
 gdf = gdf.to_crs(raster.crs.data)
+
 
 
 # STACK LAYERS
@@ -48,28 +34,28 @@ import glob
 file_list = glob.glob('germany_covars/*.tif')
 
 # Read metadata of first file
-with rasterio.open(file_list[0]) as src0:
+with rio.open(file_list[0]) as src0:
     meta = src0.meta
 
 # Update meta to reflect the number of layers
-meta.update(count = len(file_list))
+meta.update(count = len(file_list), dtype = "int16")
 
 # Read each layer and write it to stack
-with rasterio.open('stack.tif', 'w', **meta) as dst:
+with rio.open('stack.tif', 'w', **meta) as dst:
     for id, layer in enumerate(file_list, start=1):
-        with rasterio.open(layer) as src1:
-            dst.write_band(id, src1.read(1))
+        with rio.open(layer) as src1:
+            dst.write_band(id, src1.read(1).astype("int16"))
+        print(f"file {id} done")
+            
 ##############################################################################
 
 
 # EXTRACT WINDOWS AROUND TARGETS
 ###############################################################################
 coord = (gdf.geometry[i].x, gdf.geometry[i].y)
-    
-import rasterio as rio
 
 infile = r"germany_covars/CLM_CHE_BIO02.tif"
-outfile = r'test_{}.tif'
+outfile = r'covar_{}.tif'
 coordinates = ((x,y) for x, y in zip(gdf.GPS_LONG, gdf.GPS_LAT))
 
 # NxN window
@@ -102,4 +88,29 @@ with rio.open(infile) as dataset:
             dst.write(clip)
 ##############################################################################
 
+## Count dtypes in rasters
+# counts = list()
+# for file in file_list:
+#     with rio.open(file) as raster:
+#         counts.append(raster.dtypes)
 
+# counts_set = set(counts)
+# counts_set
+
+# for i in counts_set:
+#     print(i, counts.count(i))
+
+
+# for each coord(target), get surrounding from each covar raster, then merge to 415 band stack and output with 
+
+import glob
+covar_tifs = glob.glob('germany_covars/*.tif')
+
+def stack_target_bands():
+    for (lon, lat) in coordinates:
+        #get pixel cooridnates from the first raster only
+        with rio.open() as dst
+        py, px = dst.index(lon, lat)
+        for raster in covar_tifs:
+            
+        
