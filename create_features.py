@@ -35,30 +35,51 @@ gdf = gdf.to_crs(crs_raster.crs.data)
 
 file_list = glob.glob('germany_covars/*.tif')
 
-def stack_target_bands(file_list, target_coords, outfile = r'covar_{}.tif', n_win_size = 3):
-    for (lon, lat) in target_coords:
-        #get pixel coordinates from the first raster only
-        with rio.open(file_list[0]) as dst:
-            py, px = dst.index(lon, lat)
-        for file in file_list:
-            window = rio.windows.Window(px - n_win_size//2, py - n_win_size//2, n_win_size, n_win_size)
-    
-            # Read the data in the window
-            # clip is a nbands * N * N numpy array
-            clip = file.read(window=window)
+def stack_target_bands(file_list, target_coords, outfile = r"stack_{}_{}.tif", n_win_size = 3):
 
-            # Write out a new file
+    for i, (lon, lat) in enumerate(target_coords):
+        py, px = src0.index(lon, lat)
+        #Get pixel coordinates from the first raster only
+        with rio.open(file_list[0]) as src0:
+            meta = src0.meta
+            #Update meta to reflect the number of layers
+            meta.update(count = len(file_list), dtype = rio.uint16)
+        
+        #Create window
+        window = rio.windows.Window(px - n_win_size//2, py - n_win_size//2, n_win_size, n_win_size)
+            
+        #Clip window around target for each covariate and write bands to stack
+        for id, file in enumerate(file_list, start = 1):
+           
+            
+           
+            #Read the data in the window
+            #clip is a nbands * N * N numpy array
+            clip = file.read(window = window)
+            
+            #Add transform to metadata
             meta = file.meta
             meta['width'], meta['height'] = n_win_size, n_win_size
             meta['transform'] = rio.windows.transform(window, file.transform)
-    
-            with rio.open(outfile.format(i), 'w', **meta) as out:
+            
+            band_name = re.search('^(.*)\/(.*)(\..*)$', layer).group(2)
+
+            #Read each layer and write it to stack
+            with rio.open(outfile.format(i), 'w', **meta) as dst:
+                for id, layer in enumerate(file_list, start=1):
+                    band_name = re.search('^(.*)\/(.*)(\..*)$', layer).group(2)
+                    with rio.open(layer) as src1:
+                        dst.write_band(id, src1.read(1).astype(rio.uint16))
+                        dst.set_band_description(id, band_name)
+                    print(f"file {id} done")
+            
+            with rio.open(outfile.format(i, n_win_size), 'w', **meta) as out:
                 out.write(clip)
 
 
-
-
-
+import re
+m = re.search('^(.*)\/(.*)(\..*)$', test)
+m.group(2)
 
 # file_list = glob.glob('germany_covars/*.tif')
 # # Count dtypes in rasters
@@ -86,13 +107,13 @@ with rio.open(file_list[0]) as src0:
     meta = src0.meta
 
 # Update meta to reflect the number of layers
-meta.update(count = len(file_list), dtype = "int16")
+meta.update(count = len(file_list), dtype = rio.uint16)
 
 # Read each layer and write it to stack
 with rio.open('stack.tif', 'w', **meta) as dst:
     for id, layer in enumerate(file_list, start=1):
         with rio.open(layer) as src1:
-            dst.write_band(id, src1.read(1).astype("int16"))
+            dst.write_band(id, src1.read(1).astype(rio.uint16))
         print(f"file {id} done")
             
 ##############################################################################
