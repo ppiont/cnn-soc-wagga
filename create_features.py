@@ -16,7 +16,7 @@ import rasterio.warp
 import matplotlib.pyplot as plt
 import numpy as np
 import glob
-
+import re
 
 if os.getcwd().split(r"/")[-1] != "data":
     os.chdir("data/")
@@ -24,62 +24,62 @@ if os.getcwd().split(r"/")[-1] != "data":
 # open raster to get crs
 crs_raster = rio.open("germany_covars/CLM_CHE_BIO02.tif")
 
+
 # Load targets
 df = pd.read_csv("germany_targets.csv", index_col = 0)
 gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
 # Set crs to same as rasters
 gdf = gdf.to_crs(crs_raster.crs.data)
 
+file_list = glob.glob('germany_covars/*.tif')
+coordinates = ((x,y) for x, y in zip(gdf.GPS_LONG, gdf.GPS_LAT))
 
 # for each coord(target), get surrounding from each covar raster, then merge to 415 band stack and output with 
 
-file_list = glob.glob('germany_covars/*.tif')
 
-def stack_target_bands(file_list, target_coords, outfile = r"stack_{}_{}.tif", n_win_size = 3):
 
-    for i, (lon, lat) in enumerate(target_coords):
-        py, px = src0.index(lon, lat)
+def stack_target_bands(file_list, target_coords, outfile = r"stack_{}.tif", n_win_size = 3):
+
+    for i, (lon, lat) in enumerate(target_coords, start = 1):
+        
         #Get pixel coordinates from the first raster only
         with rio.open(file_list[0]) as src0:
+            py, px = src0.index(lon, lat)
             meta = src0.meta
             #Update meta to reflect the number of layers
             meta.update(count = len(file_list), dtype = rio.uint16)
         
         #Create window
         window = rio.windows.Window(px - n_win_size//2, py - n_win_size//2, n_win_size, n_win_size)
-            
-        #Clip window around target for each covariate and write bands to stack
+        
+        #Clip window around each target layer and write bands to stack
         for id, file in enumerate(file_list, start = 1):
-           
-            
-           
-            #Read the data in the window
-            #clip is a nbands * N * N numpy array
-            clip = file.read(window = window)
-            
-            #Add transform to metadata
-            meta = file.meta
-            meta['width'], meta['height'] = n_win_size, n_win_size
-            meta['transform'] = rio.windows.transform(window, file.transform)
-            
-            band_name = re.search('^(.*)\/(.*)(\..*)$', layer).group(2)
+            with rio.open(file) as src1:
+                #Read the data in the window
+                #clip is a nbands * N * N numpy array
+                clip = src1.read(window = window)
+                
+                #Add transform to metadata
+                meta = src1.meta
+                meta['width'], meta['height'] = n_win_size, n_win_size
+                meta['transform'] = rio.windows.transform(window, src1.transform)
 
-            #Read each layer and write it to stack
-            with rio.open(outfile.format(i), 'w', **meta) as dst:
-                for id, layer in enumerate(file_list, start=1):
-                    band_name = re.search('^(.*)\/(.*)(\..*)$', layer).group(2)
-                    with rio.open(layer) as src1:
-                        dst.write_band(id, src1.read(1).astype(rio.uint16))
-                        dst.set_band_description(id, band_name)
+                #Search filename without path and extension
+                band_name = re.search('^(.*)\/(.*)(\..*)$', file).group(2)
+                with rio.open(outfile.format(i), 'w', **meta) as dst:
+                    dst.write_band(id, clip.astype(rio.uint16))
+                    dst.set_band_description(id, band_name)
                     print(f"file {id} done")
-            
-            with rio.open(outfile.format(i, n_win_size), 'w', **meta) as out:
-                out.write(clip)
+    
+                # with rio.open(outfile.format(i, n_win_size), 'w', **meta) as out:
+                    #     out.write(clip)
+
+stack_target_bands(file_list, coordinates)
 
 
-import re
-m = re.search('^(.*)\/(.*)(\..*)$', test)
-m.group(2)
+# import re
+# m = re.search('^(.*)\/(.*)(\..*)$', test)
+# m.group(2)
 
 # file_list = glob.glob('germany_covars/*.tif')
 # # Count dtypes in rasters
