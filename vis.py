@@ -6,16 +6,20 @@ Created on Sat May  2 23:31:08 2020
 @author: peter
 """
 
+import os
+if os.getcwd().split(r"/")[-1] != "data":
+    os.chdir("data/")
+
 
 import pandas as pd
-df = pd.read_csv("data/germany_targets.csv", index_col = 0).reset_index()
-df.head()
+df = pd.read_csv("germany_targets.csv", index_col = 0)
 
 import geopandas as gpd
 gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
 
 
 world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -50,7 +54,7 @@ ax.grid(linestyle="--", lw="0.5", zorder=1)
 ax.set_axisbelow(True)
 ax.set_title("Spatial distribution of soil samples") ## FIX FONTS
 plt.axis('scaled')
-gdf.crs = "EPSG:4839 "
+gdf.crs = "EPSG:4839"
 
 # Plot
 gdf.plot(ax=ax, marker = '.', markersize = 1)
