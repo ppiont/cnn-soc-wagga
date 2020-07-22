@@ -106,11 +106,31 @@ with rio.open(infile) as dataset:
 import glob
 covar_tifs = glob.glob('germany_covars/*.tif')
 
-def stack_target_bands():
+def stack_target_bands(file_list, outfile = r'covar_{}.tif', n_win_size = 3):
     for (lon, lat) in coordinates:
-        #get pixel cooridnates from the first raster only
-        with rio.open() as dst
-        py, px = dst.index(lon, lat)
-        for raster in covar_tifs:
-            
+        #get pixel coordinates from the first raster only
+        with rio.open(covar_tifs[0]) as dst:
+            py, px = dst.index(lon, lat)
+            for raster in covar_tifs:
+                window = rio.windows.Window(px - n_win_size//2, py - n_win_size//2, n_win_size, n_win_size)
+                print(window)
         
+                # Read the data in the window
+                # clip is a nbands * N * N numpy array
+                clip = raster.read(window=window)
+
+                # Write out a new file
+                meta = raster.meta
+                meta['width'], meta['height'] = n_win_size, n_win_size
+                meta['transform'] = rio.windows.transform(window, raster.transform)
+        
+                with rio.open(outfile.format(i), 'w', **meta) as out:
+                    out.write(clip)
+
+
+
+
+
+
+
+
