@@ -6,20 +6,6 @@ Created on Sun May 17 14:41:37 2020
 @author: peter
 """
 
-
-
-
-
-
-import rasterio as rio
-import os
-
-bands = rio.open("data/germany_covars/CLM_CHE_BIO02.tif")
-
-
-band = bands.read(1)
-band.sum()
-
 import geopandas as gpd
 import pandas as pd
 import os
@@ -31,13 +17,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import glob
 import re
+import pdb
+
+pd.options.display.max_columns = 500
+pd.options.display.max_rows = 500
+pd.options.display.precision = 5
 
 if os.getcwd().split(r"/")[-1] != "data":
     os.chdir("data/")
-
-# open raster to get crs
+    
+if not os.path.exists("features"):
+    os.makedirs("features")
+    
+# Open raster to get crs
 crs_raster = rio.open("germany_covars/CLM_CHE_BIO02.tif")
-
 
 # Load targets
 df = pd.read_csv("germany_targets.csv", index_col = 0)
@@ -46,53 +39,39 @@ gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT
 gdf = gdf.to_crs(crs_raster.crs.data)
 
 #Create list of filenames for cov rasters
-file_list = glob.glob('germany_covars/*.tif')
+file_list = glob.glob("germany_covars/*.tif")
+
 #Create list of coordinates for each target
-coordinates = ((x,y) for x, y in zip(gdf.GPS_LONG, gdf.GPS_LAT))
+coordinates = [(x,y) for x, y in zip(gdf.geometry.x, gdf.geometry.y)]
 
-# for each coord(target), get surrounding from each covar raster, then merge to 415 band stack and output with 
-
-
+#For each coord(target), get surrounding from each covar raster, then merge to 415 band stack and output with 
 def stack_target_bands(file_list, target_coords, outfile = r"stack_{}.tif", n_win_size = 3):
+    """Stack all bands and extract data around each target coord with a certain buffer (window) size"""
     #For each target coord
-    for i, (lon, lat) in enumerate(target_coords, start = 1):
+    for i, (x, y) in enumerate(target_coords, start = 1):
         
-        #Get pixel coordinates from the first raster only
-        with rio.open(file_list[0], 'r') as src0:
-            py, px = src0.index(lon, lat)
-            print(py, px)
+        #Get pixel coordinates and meta from the first raster only
+        with rio.open(file_list[0], "r") as src0:
+            py, px = src0.index(x, y)
             meta = src0.meta
-            #Update meta to reflect the number of layers
-            meta.update(count = len(file_list), dtype = rio.uint16)
-            print(meta)
-            
+
         #Create window
         window = rio.windows.Window(px - n_win_size//2, py - n_win_size//2, n_win_size, n_win_size)
-        print(window)
         
-        #Clip window around target for each layer and write bands to stack
-        for id, file in enumerate(file_list, start = 1):
-            with rio.open(file, 'r') as src1:
-                #Read the data in the window
-                #clip is a nbands * N * N numpy array
-                clip = src1.read(window = window)
-                #Add transform to metadata
-                meta = src1.meta
-                meta['width'], meta['height'] = n_win_size, n_win_size
-                meta['transform'] = rio.windows.transform(window, src1.transform)
-                meta.update(count = len(file_list), dtype = rio.uint16)
-                
-                print(np.shape(clip)) # something is wrong wit´h the clip shape!
-
-                #Search filename without path and extension
-                band_name = re.search('^(.*)\/(.*)(\..*)$', file).group(2)
-                with rio.open(outfile.format(i), 'w', **meta) as dst:
-                    dst.write_band(id, clip.astype(rio.uint16))
+        #Update window related meta
+        meta['width'], meta['height'] = n_win_size, n_win_size
+        meta['transform'] = rio.windows.transform(window, src0.transform)
+        #Update band count in meta
+        meta.update(count = len(file_list), dtype = rio.uint16)
+        with rio.open(("features/" + outfile.format(i)), "w", **meta) as dst:
+            for id, band in enumerate(file_list, start = 1):
+                with rio.open(band) as src1:
+                    band_name = re.search('^(.*)\/(.*)(\..*)$', band).group(2)
+                    # clip = src1.read(1, window = window)
+                    dst.write_band(id, src1.read(1, window = window).astype(rio.uint16))
                     dst.set_band_description(id, band_name)
-                    print(f"file {id} done")
-    
-                # with rio.open(outfile.format(i, n_win_size), 'w', **meta) as out:
-                    #     out.write(clip)
+        print(f"Target {i} done (E/N = {(x,y)}")
+
 
 stack_target_bands(file_list, coordinates)
 
@@ -116,27 +95,35 @@ stack_target_bands(file_list, coordinates)
 
 
 
+# # ORIGINAL READ TARGETS AND SET CRS
+###############################################################################
+crs_raster = rio.open("germany_covars/CLM_CHE_BIO02.tif")
+df = pd.read_csv("germany_targets.csv", index_col = 0)
+gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
+gdf = gdf.to_crs(crs_raster.crs)
+gdf.to_file("targets.geojson", driver='GeoJSON')
+###############################################################################
 
-# STACK LAYERS
-##############################################################################
-import glob
-file_list = glob.glob('germany_covars/*.tif')
+# # STACK LAYERS
+# #############################################################################
+# import glob
+# file_list = glob.glob('germany_covars/*.tif')
 
-# Read metadata of first file
-with rio.open(file_list[0]) as src0:
-    meta = src0.meta
+# # Read metadata of first file
+# with rio.open(file_list[0]) as src0:
+#     meta = src0.meta
 
-# Update meta to reflect the number of layers
-meta.update(count = len(file_list), dtype = rio.uint16)
+# # Update meta to reflect the number of layers
+# meta.update(count = len(file_list), dtype = rio.uint16)
 
-# Read each layer and write it to stack
-with rio.open('stack.tif', 'w', **meta) as dst:
-    for id, layer in enumerate(file_list, start=1):
-        with rio.open(layer) as src1:
-            dst.write_band(id, src1.read(1).astype(rio.uint16))
-        print(f"file {id} done")
+# # Read each layer and write it to stack
+# with rio.open('stack.tif', 'w', **meta) as dst:
+#     for id, layer in enumerate(file_list, start=1):
+#         with rio.open(layer) as src1:
+#             dst.write_band(id, src1.read(1).astype(rio.uint16))
+#         print(f"file {id} done")
             
-##############################################################################
+###############################################################################
 
 
 # EXTRACT WINDOWS AROUND TARGETS

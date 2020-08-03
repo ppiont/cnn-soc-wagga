@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug  3 15:31:24 2020
+
+@author: peter
+"""
+
+        # #Clip window around target for each layer and write bands to stack
+        # for id, file in enumerate(file_list, start = 1):
+        #     with rio.open(file, 'r') as src1:
+        #         #Read the data in the window
+        #         #clip is a nbands * N * N numpy array
+        #         clip = src1.read(window = window)
+        #         #Add transform to metadata
+        #         meta = src1.meta
+        #         meta['width'], meta['height'] = n_win_size, n_win_size
+        #         meta['transform'] = rio.windows.transform(window, src1.transform)
+        #         meta.update(count = len(file_list), dtype = rio.uint16)
+                
+        #         print(np.shape(clip)) # something is wrong wit´h the clip shape!
+
+        #         #Search filename without path and extension
+        #         band_name = re.search('^(.*)\/(.*)(\..*)$', file).group(2)
+        #         with rio.open(outfile.format(i), 'w', **meta) as dst:
+        #             dst.write_band(id, clip.astype(rio.uint16))
+        #             dst.set_band_description(id, band_name)
+        #             print(f"file {id} done")
+    
+        #         # with rio.open(outfile.format(i, n_win_size), 'w', **meta) as out:
+        #             #     out.write(clip)

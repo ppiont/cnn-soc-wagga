@@ -7,29 +7,24 @@ Created on Sat May  2 23:31:08 2020
 """
 
 import os
-if os.getcwd().split(r"/")[-1] != "data":
-    os.chdir("data/")
-
-
 import pandas as pd
-df = pd.read_csv("germany_targets.csv", index_col = 0)
-
 import geopandas as gpd
-gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
-
-
-world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 mpl.style.use('tableau-colorblind10')
 mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif", "xtick.labelsize": "small", "ytick.labelsize": "small", "xtick.major.size" : 0, "xtick.minor.size" : 0, "ytick.major.size" : 0, "ytick.minor.size" : 0, 
                      "axes.titlesize":"medium", "figure.titlesize": "medium", "figure.figsize": (5,5), "figure.dpi": 300, "figure.autolayout": True, "savefig.format": "pdf", "savefig.transparent": True})
 
+if os.getcwd().split(r"/")[-1] != "data":
+    os.chdir("data/")
+    
 fig_path = "figures/"
 
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+df = pd.read_csv("germany_targets.csv", index_col = 0)
+gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
+world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
 # Restrict to Germany
 ax = world[world.name == "Germany"].plot(
@@ -61,6 +56,20 @@ gdf.plot(ax=ax, marker = '.', markersize = 1)
 
 # plt.savefig("figures/spatial_distribution_of_soil_samples.pdf")
 plt.show()
+
+
+
+# # Load targets
+# targets = gpd.read_file("targets.geojson")
+# # Load raster
+# raster = rio.open("germany_covars/CLM_CHE_BIO02.tif", "r")
+# # Reproject targets as geojson auto projects to WGS84 upon save
+# targets.crs = raster.crs
+
+# # Plot targets on raster for testing projections
+# fig, ax = plt.subplots(figsize = (10, 10), dpi = 300)
+# rio.plot.show(raster, ax=ax)
+# gdf.plot(ax=ax, marker = '.', markersize = 1, column = "OC", legend=True)
 
 
 
