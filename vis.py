@@ -7,6 +7,7 @@ Created on Sat May  2 23:31:08 2020
 """
 
 import os
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib as mpl
@@ -23,24 +24,39 @@ if os.getcwd().split(r"/")[-1] != "data":
 fig_path = "figures/"
 
 df = pd.read_csv("germany_targets.csv", index_col = 0)
+df['OC_z'] = (df.OC - df.OC.mean())/df.OC.std(ddof=0)
 gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
 world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+
+
+############################### SOC LEVEL PLOT ###############################
 
 # Restrict to Germany
 ax = world[world.name == "Germany"].plot(
     color='white', edgecolor='black')
-# ax.set_title("Spatial distribution of soil samples, Germany")
+ax.set_title("Spatial distribution of soil samples, Germany")
+ax.grid(linestyle="--", lw="0.5", zorder=1)
+ax.set_axisbelow(True)
+plt.axis('scaled')
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
 
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.1)
-
-#targets[(targets.OC < (targets.OC.mean() + targets.OC.std() * 3)) & (targets.OC > (targets.OC.mean() - targets.OC.std() * 3))].plot(column='OC', ax=ax, legend=True, cax=cax)
+cax.set_label("SOC (g/kg)")
+gdf.crs = "EPSG:4839"
 
 # Plot
-gdf.plot(ax=ax, marker = '.', markersize = 1, column = "OC", legend=True, cax = cax)
+gdf.plot(ax=ax, marker = '.', markersize = 10, column = "OC", legend=True, cax = cax)
 plt.show()
 
 # plt.savefig("figures/germanyplot.pdf")
+
+
+
+
+
+################################# POINT DISTRO#################################
 
 # Restrict to Germany
 ax = world[world.name == "Germany"].plot(
