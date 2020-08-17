@@ -13,15 +13,22 @@ import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import seaborn as sns
 
 mpl.style.use('tableau-colorblind10')
-mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif", "xtick.labelsize": "small", "ytick.labelsize": "small", "xtick.major.size" : 0, "xtick.minor.size" : 0, "ytick.major.size" : 0, "ytick.minor.size" : 0, 
-                     "axes.titlesize":"medium", "figure.titlesize": "medium", "figure.figsize": (5,5), "figure.dpi": 300, "figure.autolayout": True, "savefig.format": "pdf", "savefig.transparent": True})
+mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif", 
+                     "xtick.labelsize": "small", "ytick.labelsize": "small", 
+                     "xtick.major.size" : 0, "xtick.minor.size" : 0, 
+                     "ytick.major.size" : 0, "ytick.minor.size" : 0, 
+                     "axes.titlesize":"medium", "figure.titlesize": "medium", 
+                     "figure.figsize": (5,5), "figure.dpi": 300, 
+                     "figure.autolayout": True, "savefig.format": "pdf", 
+                     "savefig.transparent": True, "image.cmap": "viridis"})
 
 if os.getcwd().split(r"/")[-1] != "data":
     os.chdir("data/")
     
-fig_path = "figures/"
+fig_path = "/home/peter/cnn-soc-wagga/figures/"
 
 df = pd.read_csv("germany_targets.csv", index_col = 0)
 df['OC_z'] = (df.OC - df.OC.mean())/df.OC.std(ddof=0)
@@ -34,24 +41,28 @@ world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 # Restrict to Germany
 ax = world[world.name == "Germany"].plot(
     color='white', edgecolor='black')
-ax.set_title("Spatial distribution of soil samples, Germany")
+ax.set_title("Soil sample distribution", loc = "left")
 ax.grid(linestyle="--", lw="0.5", zorder=1)
 ax.set_axisbelow(True)
 plt.axis('scaled')
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 
+# colors = plt.cm.viridis(gdf.OC.ravel() / float(max(gdf.OC.ravel())))
+# sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=1))
+# # fake up the array of the scalar mappable. Urgh…
+# sm._A = []
+# plt.colorbar(sm)
+
 divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="5%", pad=0.1)
-cax.set_label("SOC (g/kg)")
+cax.set_title("SOC (g/kg)", loc = "right")
 gdf.crs = "EPSG:4839"
 
 # Plot
-gdf.plot(ax=ax, marker = '.', markersize = 10, column = "OC", legend=True, cax = cax)
+gdf.plot(ax = ax, marker = '.', markersize = 10, column = "OC", legend=True, cax = cax)
+# plt.savefig(os.path.join(fig_path, "germanyplot.pdf"), bbox_inches = 'tight', pad_inches = 0)
 plt.show()
-
-# plt.savefig("figures/germanyplot.pdf")
-
 
 
 
@@ -65,13 +76,48 @@ ax.grid(linestyle="--", lw="0.5", zorder=1)
 ax.set_axisbelow(True)
 ax.set_title("Spatial distribution of soil samples") ## FIX FONTS
 plt.axis('scaled')
+ax.set_xlabel("Longitude")
+ax.set_ylabel("Latitude")
 gdf.crs = "EPSG:4839"
 
 # Plot
-gdf.plot(ax=ax, marker = '.', markersize = 1)
+gdf.plot(ax = ax, marker = '.', markersize = 10)
 
-# plt.savefig("figures/spatial_distribution_of_soil_samples.pdf")
+# plt.savefig(os.path.join(fig_path, "spatial_distribution_of_soil_samples.pdf"), bbox_inches = 'tight', pad_inches = 0)
 plt.show()
+
+
+#################################### HIST ####################################
+
+sns.set_context("paper")
+sns.set_style("whitegrid")
+
+x = df.OC
+
+ax = sns.distplot(x)
+ax.set_title("Distribution plot of sampled SOC")
+ax.set_xlabel("SOC (g/kg)")
+sns.despine()
+plt.savefig(os.path.join(fig_path, "soc_distplot.pdf"), bbox_inches = 'tight', pad_inches = 0)
+
+ax = sns.boxplot(x)
+ax.set_title("Boxplot of sampled SOC")
+ax.set_xlabel("SOC (g/kg)")
+sns.despine()
+plt.savefig(os.path.join(fig_path, "soc_boxplot.pdf"), bbox_inches = 'tight', pad_inches = 0)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
