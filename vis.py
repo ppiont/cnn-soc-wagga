@@ -12,7 +12,6 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import seaborn as sns
 
 mpl.style.use('tableau-colorblind10')
@@ -36,7 +35,78 @@ gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT
 world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
 
+
+################################ CARTOPY TEST ################################
+import cartopy
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import cartopy.io.shapereader as shpreader
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from matplotlib.offsetbox import AnchoredText
+
+
+# def make_colorbar(ax, mappable, **kwargs):
+#     from mpl_toolkits.axes_grid1 import make_axes_locatable
+#     import matplotlib as mpl
+
+#     divider = make_axes_locatable(ax)
+#     orientation = kwargs.pop('orientation', 'vertical')
+#     if orientation == 'vertical':
+#         loc = 'right'
+#     elif orientation == 'horizontal':
+#         loc = 'bottom'
+        
+#     cax = divider.append_axes(loc, '5%', pad='3%', axes_class=mpl.pyplot.Axes)
+#     ax.get_figure().colorbar(mappable, cax=cax, orientation=orientation)
+
+
+# get country borders
+resolution = '10m'
+category = 'cultural'
+name = 'admin_0_countries'
+
+shpfilename = shpreader.natural_earth(resolution, category, name)
+
+# read the shapefile using geopandas
+df = gpd.read_file(shpfilename)
+
+# read the german borders
+poly = df.loc[df['ADMIN'] == 'Germany']['geometry'].values[0]
+
+# create ax
+fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection=ccrs.EuroPP()))
+# set title
+plt.title('Deutschland')
+
+# add geometries and features
+ax.coastlines(resolution='10m', alpha = 0.5)
+ax.add_feature(cfeature.BORDERS, alpha = 0.5)
+ax.add_geometries(poly, crs=ccrs.PlateCarree(), facecolor='none', edgecolor='0')
+
+# convert gpd to same proj as cartopy map
+crs_proj4 = ccrs.EuroPP().proj4_init
+gdf_utm32 = gdf.to_crs(crs_proj4)
+
+# Plot
+gdf_utm32.plot(ax = ax, marker = '.', markersize = 10, column = "OC")
+
+# mappable = gdf_utm32.plot(ax = ax, marker = '.', markersize = 10, column = "OC")
+
+ax.set_extent([5.5, 15.5, 46.5, 55.5], crs=ccrs.PlateCarree())
+
+# make_colorbar(ax, mappable, orientation='vertical')
+
+# plt.savefig(os.path.join(fig_path, "testplot.pdf"), bbox_inches = 'tight', pad_inches = 0)
+plt.show()
+
+
+
+
+
+
+
 ############################### SOC LEVEL PLOT ###############################
+
 
 # Restrict to Germany
 ax = world[world.name == "Germany"].plot(
@@ -55,9 +125,9 @@ ax.set_ylabel("Latitude")
 # plt.colorbar(sm)
 
 divider = make_axes_locatable(ax)
-cax = divider.append_axes("right", size="5%", pad=0.1)
+cax = divider.append_axes("right", size="5%", pad="3%")
 cax.set_title("SOC (g/kg)", loc = "right")
-gdf.crs = "EPSG:4839"
+# gdf.crs = "EPSG:4839"
 
 # Plot
 gdf.plot(ax = ax, marker = '.', markersize = 10, column = "OC", legend=True, cax = cax)
