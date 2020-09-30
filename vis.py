@@ -7,7 +7,6 @@ Created on Sat May  2 23:31:08 2020
 """
 
 import os
-import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib as mpl
@@ -37,28 +36,10 @@ world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
 
 ################################ CARTOPY TEST ################################
-import cartopy
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import cartopy.io.shapereader as shpreader
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-# from matplotlib.offsetbox import AnchoredText
-
-
-# def make_colorbar(ax, mappable, **kwargs):
-#     from mpl_toolkits.axes_grid1 import make_axes_locatable
-#     import matplotlib as mpl
-
-#     divider = make_axes_locatable(ax)
-#     orientation = kwargs.pop('orientation', 'vertical')
-#     if orientation == 'vertical':
-#         loc = 'right'
-#     elif orientation == 'horizontal':
-#         loc = 'bottom'
-        
-#     cax = divider.append_axes(loc, '5%', pad='3%', axes_class=mpl.pyplot.Axes)
-#     ax.get_figure().colorbar(mappable, cax=cax, orientation=orientation)
-
 
 # get country borders
 resolution = '10m'
@@ -75,8 +56,6 @@ poly = df.loc[df['ADMIN'] == 'Germany']['geometry'].values[0]
 
 # create ax
 fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection=ccrs.EuroPP()))
-# set title
-plt.title('Deutschland')
 
 # add geometries and features
 ax.coastlines(resolution='10m', alpha = 0.5)
@@ -88,13 +67,23 @@ crs_proj4 = ccrs.EuroPP().proj4_init
 gdf_utm32 = gdf.to_crs(crs_proj4)
 
 # Plot
-gdf_utm32.plot(ax = ax, marker = '.', markersize = 10, column = "OC")
+gdf_utm32.plot(ax = ax, marker = '.', markersize = 10, column = "OC", legend=True)
 
-# mappable = gdf_utm32.plot(ax = ax, marker = '.', markersize = 10, column = "OC")
-
+# set extent of map
 ax.set_extent([5.5, 15.5, 46.5, 55.5], crs=ccrs.PlateCarree())
 
-# make_colorbar(ax, mappable, orientation='vertical')
+# get axes for adding titles
+map_ax = fig.axes[0]
+leg_ax = fig.axes[1]
+
+map_box = map_ax.get_position()
+leg_box = leg_ax.get_position()
+
+leg_ax.set_position([leg_box.x0, map_box.y0, leg_box.width, map_box.height])
+
+map_ax.set_title('Sample distribution', pad = 10)
+leg_ax.set_title('SOC (g/kg)', pad = 10)
+
 
 # plt.savefig(os.path.join(fig_path, "testplot.pdf"), bbox_inches = 'tight', pad_inches = 0)
 plt.show()
@@ -102,8 +91,55 @@ plt.show()
 
 
 
+##############################################################################
 
 
+fig = plt.figure(figsize=(20, 20))
+ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+
+# set aspect to equal. This is done automatically
+# when using *geopandas* plot on it's own, but not when
+# working with pyplot directly.
+ax.set_aspect('equal')
+
+path=gpd.datasets.get_path('naturalearth_lowres')
+
+world = gpd.read_file(path)
+gdp_max = world['gdp_md_est'].max()
+gdp_min = world['gdp_md_est'].min()
+
+p = world.plot(ax=ax, facecolor='lightgrey', edgecolor='grey', column='pop_est', 
+               legend=True)
+
+
+max_size = 40
+min_size = 1
+
+
+for (idx, country), cd in zip(world.iterrows(), world.centroid):
+
+    gdp = country['gdp_md_est']
+    plt.plot(cd.xy[0], cd.xy[1], 
+             marker='o', 
+             color='red', 
+             markersize=min_size+(max_size-min_size)*(gdp/gdp_max), 
+             transform=ccrs.Geodetic(),
+            alpha=0.75,
+            )
+#end for
+
+map_ax = fig.axes[0]
+leg_ax = fig.axes[1]
+
+map_box = map_ax.get_position()
+leg_box = leg_ax.get_position()
+
+leg_ax.set_position([leg_box.x0, map_box.y0, leg_box.width, map_box.height])
+
+leg_ax.set_title('Population', pad=40)
+map_ax.set_title('Country GDP', pad=50)
+
+plt.show()
 
 ############################### SOC LEVEL PLOT ###############################
 
