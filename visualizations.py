@@ -30,11 +30,6 @@ if os.getcwd().split(r"/")[-1] != "data":
     
 fig_path = "../figures/"
 
-
-###############################3
-
-
-
 df = pd.read_csv("germany_targets.csv", index_col = 0)
 gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
 
@@ -73,9 +68,7 @@ leg_box = leg_ax.get_position()
 leg_ax.set_position([leg_box.x0, map_box.y0, leg_box.width, map_box.height])
 map_ax.set_title('Sample distribution', pad = 10)
 leg_ax.set_title('SOC (g/kg)', pad = 10)
-´
+
 # save and show fig
-plt.savefig(os.path.join(fig_path, "sample_distribution_soc.pdf"), bbox_inches = 'tight', pad_inches = 0)
+# plt.savefig(os.path.join(fig_path, "sample_distribution_soc.pdf"), bbox_inches = 'tight', pad_inches = 0)
 plt.show()
-
-
