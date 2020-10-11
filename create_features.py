@@ -39,7 +39,7 @@ gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT
 gdf = gdf.to_crs(crs_raster.crs.data)
 
 #Create list of filenames for cov rasters
-file_list = glob.glob("germany_covars/*.tif")
+file_list = sorted(glob.glob("germany_covars/*.tif"))
 
 #Create list of coordinates for each target
 coordinates = [(x,y) for x, y in zip(gdf.geometry.x, gdf.geometry.y)]
@@ -79,90 +79,3 @@ stack_target_bands(file_list, coordinates)
 # import re
 # m = re.search('^(.*)\/(.*)(\..*)$', test)
 # m.group(2)
-
-# file_list = glob.glob('germany_covars/*.tif')
-# # Count dtypes in rasters
-# counts = list()
-# for file in file_list:
-#     with rio.open(file) as raster:
-#         counts.append(raster.dtypes)
-
-# counts_set = set(counts)
-# counts_set
-
-# for i in counts_set:
-#     print(i, counts.count(i))
-
-
-
-# # ORIGINAL READ TARGETS AND SET CRS
-###############################################################################
-crs_raster = rio.open("germany_covars/CLM_CHE_BIO02.tif")
-df = pd.read_csv("germany_targets.csv", index_col = 0)
-gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
-gdf = gdf.to_crs(crs_raster.crs)
-gdf.to_file("targets.geojson", driver='GeoJSON')
-###############################################################################
-
-# # STACK LAYERS
-# #############################################################################
-# import glob
-# file_list = glob.glob('germany_covars/*.tif')
-
-# # Read metadata of first file
-# with rio.open(file_list[0]) as src0:
-#     meta = src0.meta
-
-# # Update meta to reflect the number of layers
-# meta.update(count = len(file_list), dtype = rio.uint16)
-
-# # Read each layer and write it to stack
-# with rio.open('stack.tif', 'w', **meta) as dst:
-#     for id, layer in enumerate(file_list, start=1):
-#         with rio.open(layer) as src1:
-#             dst.write_band(id, src1.read(1).astype(rio.uint16))
-#         print(f"file {id} done")
-            
-###############################################################################
-
-
-# EXTRACT WINDOWS AROUND TARGETS
-###############################################################################
-# coord = (gdf.geometry[i].x, gdf.geometry[i].y)
-
-# infile = r"germany_covars/CLM_CHE_BIO02.tif"
-# outfile = r'covar_{}.tif'
-# coordinates = ((x,y) for x, y in zip(gdf.GPS_LONG, gdf.GPS_LAT))
-
-# # NxN window
-# N = 3
-
-# # Open the raster
-# with rio.open(infile) as dataset:
-
-#     # Loop through list of coords
-#     for i, (lon, lat) in enumerate(coordinates):
-
-#         # Get pixel coordinates from map coordinates
-#         py, px = dataset.index(lon, lat)
-#         #print(f'Pixel Y, X coords: {py}, {px}')
-
-#         # Build an NxN window
-#         window = rio.windows.Window(px - N//2, py - N//2, N, N)
-#         print(window)
-
-#         # Read the data in the window
-#         # clip is a nbands * N * N numpy array
-#         clip = dataset.read(window=window)
-
-#         # Write out a new file
-#         meta = dataset.meta
-#         meta['width'], meta['height'] = N, N
-#         meta['transform'] = rio.windows.transform(window, dataset.transform)
-
-#         with rio.open(outfile.format(i), 'w', **meta) as dst:
-#             dst.write(clip)
-##############################################################################
-
-
-

@@ -24,7 +24,7 @@ mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif",
                      "axes.titlesize":"medium", "figure.titlesize": "medium", 
                      "figure.figsize": (5, 5), "figure.dpi": 600, 
                      "figure.autolayout": True, "savefig.format": "pdf", 
-                     "savefig.transparent": True, "image.cmap": "viridis"})
+                     "savefig.transparent": True, "image.cmap": "magma_r"})
 
 pd.options.display.precision = 2
 
