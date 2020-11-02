@@ -7,12 +7,10 @@ Created on Mon Aug  3 15:31:24 2020
 """
 
 import rasterio as rio
+import numpy as np
+import geopandas as gpd
+import pandas as pd
+import os
 
-with rio.open("features/stack_1.tif") as test:
-    w = test.read(415)
+os.chdir("./data/")
 
-w
-w.crs
-
-test
-test.bounds
