@@ -23,7 +23,7 @@ mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif",
                      "axes.titlesize":"medium", "figure.titlesize": "medium", 
                      "figure.figsize": (5, 5), "figure.dpi": 600, 
                      "figure.autolayout": True, "savefig.format": "pdf", 
-                     "savefig.transparent": True, "image.cmap": "magma_r"})
+                     "savefig.transparent": True, "image.cmap": "cool"})
 
 if os.getcwd().split(r"/")[-1] != "data":
     os.chdir("data/")
@@ -66,9 +66,9 @@ leg_ax = fig.axes[1]
 map_box = map_ax.get_position()
 leg_box = leg_ax.get_position()
 leg_ax.set_position([leg_box.x0, map_box.y0, leg_box.width, map_box.height])
-map_ax.set_title("Sample distribution", pad = 10)
+# map_ax.set_title("Sample distribution", pad = 10)
 leg_ax.set_title("SOC (g/kg)", pad = 10)
 
 # save and show fig
-plt.savefig(os.path.join(fig_path, "sample_distribution_soc2.pdf"), bbox_inches = 'tight', pad_inches = 0)
+# plt.savefig(os.path.join(fig_path, "sample_distribution_soc3.pdf"), bbox_inches = 'tight', pad_inches = 0)
 plt.show()
