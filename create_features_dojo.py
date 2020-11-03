@@ -7,20 +7,21 @@ Created on Mon Aug  3 15:31:24 2020
 """
 
 import rasterio as rio
+from rasterio.plot import show
 import numpy as np
 import geopandas as gpd
 import pandas as pd
+import matplotlib.pyplot as plt
 import os
 import path
 import re
 import glob
 
-
-
-
+# Go to data folder if not already in it
 if os.getcwd().split(r"/")[-1] != "data":
     os.chdir("data/")
-    
+
+# Save feature dir as Path
 d = path.Path(os.getcwd())
 featdir = d / "features"
 
@@ -38,10 +39,20 @@ with featdir:
 # Define function to extract numbers from file names
 def numbers(x):
     return(int(re.split("_|\.", x)[1]))
-# Sort based on numerical pattern
+# Sort based on numerical pattern (instead of alphabetical)
 r_list = sorted(r_list, key = numbers)
 
+with featdir:
+    testcase = rio.open(r_list[500]).read(1)
+    testcaseb = rio.open(r_list[500])
 
+plt.imshow(testcase, cmap = "cool")
+show(testcase)
+
+testcaseb.bounds.to_list()
+
+df2 = pd.DataFrame()
+df2["test"] = testcaseb.bounds
 # # Set geodataframe crs to raster crs
 # with rio.open("features/stack_1.tif") as rref:
 #     gdf = gdf.to_crs(rref.crs)
