@@ -13,9 +13,14 @@ import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import sys
 import path
 import re
 import glob
+
+pd.options.display.max_columns = 500
+pd.options.display.max_rows = 500
+pd.options.display.precision = 5
 
 # Go to data folder if not already in it
 if os.getcwd().split(r"/")[-1] != "data":
@@ -41,28 +46,41 @@ def numbers(x):
     return(int(re.split("_|\.", x)[1]))
 # Sort based on numerical pattern (instead of alphabetical)
 r_list = sorted(r_list, key = numbers)
+    
 
+# Create list of raster bounds and add to df
+bounds_list = []
 with featdir:
-    testcase = rio.open(r_list[500]).read(1)
-    testcaseb = rio.open(r_list[500])
+    for file in r_list:
+        with rio.open(file) as raster:
+            bounds_list.append(list(raster.bounds))
+            print(file, "done")
 
-plt.imshow(testcase, cmap = "cool")
-show(testcase)
-
-testcaseb.bounds.to_list()
-
-df2 = pd.DataFrame()
-df2["test"] = testcaseb.bounds
-# # Set geodataframe crs to raster crs
-# with rio.open("features/stack_1.tif") as rref:
-#     gdf = gdf.to_crs(rref.crs)
-
-# # Load raster stack as array
-# rref = rio.open("features/stack_1.tif")
-# test_arr = test.read()
-# test_arr.shape
-# test_arr.geometry()
-
-# targets.head()
+targets["bounds"] = bounds_list
 
 
+array_list = []
+# Create list of raster array and add to df
+with featdir:
+    for file in r_list:
+        with rio.open(file) as raster:
+            array_list.append(np.moveaxis(raster.read(), 0, 2))
+            print(file, "done")
+
+targets["features"] = array_list
+
+for i in range(3):
+    for array in array_list[]:
+        temp = np.rot90()
+
+for i in range(1, 4):
+    temp = [np.rot90(array, k = i, axes = (1, 0)) for array in array_list]
+    array_list.append(temp)
+
+
+array_list[0].shape
+# Test rotation
+# with featdir:
+#     test = np.moveaxis(rio.open(r_list[1]).read(), 0, 2)
+# show(test[:,:,42], cmap = "cool")
+# show(np.rot90(test, k=1, axes=(1, 0))[:,:,42], cmap="cool")
