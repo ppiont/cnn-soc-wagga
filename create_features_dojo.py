@@ -71,18 +71,22 @@ with featdir:
 
 targets["features"] = array_list
 
-for i in range(3):
-    for array in array_list[]:
-        temp = np.rot90()
 
+# Test if rotations work
+test_list = []
 for i in range(1, 4):
     temp = [np.rot90(array, k = i, axes = (1, 0)) for array in array_list]
-    array_list.append(temp)
-
-
-array_list[0].shape
-# Test rotation
-# with featdir:
-#     test = np.moveaxis(rio.open(r_list[1]).read(), 0, 2)
-# show(test[:,:,42], cmap = "cool")
-# show(np.rot90(test, k=1, axes=(1, 0))[:,:,42], cmap="cool")
+    test_list.append(temp)
+    
+# Plot test rotations
+fig, axs = plt.subplots(2, 2)
+fig.suptitle('Rotations')
+axs[0, 0].imshow(array_list[0][:,:,42])
+axs[0, 0].set_title("0 deg")
+axs[0, 1].imshow(test_list[0][0][:,:,42])
+axs[0, 1].set_title("90 deg")
+axs[1, 0].imshow(test_list[1][0][:,:,42])
+axs[1, 0].set_title("180 deg")
+axs[1, 1].imshow(test_list[2][0][:,:,42])
+axs[1, 1].set_title("270 deg")
+plt.tight_layout()
