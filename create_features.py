@@ -38,14 +38,14 @@ gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT
 # Set crs to same as the raster's
 gdf = gdf.to_crs(crs_raster.crs.data)
 
-#Create list of filenames for cov rasters
+# Create list of filenames for cov rasters
 file_list = sorted(glob.glob("germany_covars/*.tif"))
 
-#Create list of coordinates for each target
+# Create list of coordinates for each target
 coordinates = [(x,y) for x, y in zip(gdf.geometry.x, gdf.geometry.y)]
 
-#For each coord(target), get surrounding from each covar raster, then merge to 415 band stack and output with 
-def stack_target_bands(file_list, target_coords, outfile = r"stack_{}.tif", n_win_size = 3):
+# For each coord(target), get surrounding from each covar raster, then merge to 415 band stack and output with 
+def stack_target_bands(file_list, target_coords, outfolder = "features/", outfile = r"stack_{}.tif", n_win_size = 3):
     """Stack all bands and extract data around each target coord with a chosen window size"""
     #For each target coord
     for i, (x, y) in enumerate(target_coords, start = 1):
@@ -63,7 +63,7 @@ def stack_target_bands(file_list, target_coords, outfile = r"stack_{}.tif", n_wi
         meta['transform'] = rio.windows.transform(window, src0.transform)
         #Update band count in meta
         meta.update(count = len(file_list), dtype = rio.int32)
-        with rio.open(("features/" + outfile.format(i)), "w", **meta) as dst:
+        with rio.open((outfolder + outfile.format(i)), "w", **meta) as dst:
             for id, band in enumerate(file_list, start = 1):
                 with rio.open(band) as src1:
                     band_name = re.search('^(.*)\/(.*)(\..*)$', band).group(2)
@@ -76,7 +76,7 @@ def stack_target_bands(file_list, target_coords, outfile = r"stack_{}.tif", n_wi
 import warnings
 warnings.filterwarnings("ignore")
 
-stack_target_bands(file_list, coordinates)
+stack_target_bands(file_list, coordinates, n_win_size=15)
 
 
 # import re
