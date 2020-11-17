@@ -48,7 +48,10 @@ def numbers(x):
     return(int(re.split("_|\.", x)[1]))
 # Sort based on numerical pattern (instead of alphabetical)
 r_list = sorted(r_list, key = numbers)
-    
+
+# with featdir:
+#     with rio.open(r_list[0]) as raster:
+#         print(raster.read().shape)
 
 # Create list of raster bounds and add to df
 bounds_list = []
@@ -58,11 +61,11 @@ with featdir:
             bounds_list.append(list(raster.bounds))
             print(file, "done")
 
-targets["bounds"] = bounds_list
+targets["bounds"] = bounds_list # doesn't work, it is pivoted on maxy etc, fix
 
 
-array_list = []
 # Create list of raster array and add to df
+array_list = []
 with featdir:
     for file in r_list:
         with rio.open(file) as raster:
@@ -71,22 +74,23 @@ with featdir:
 
 targets["features"] = array_list
 
+# targets.to_file("targets.json", driver="GeoJSON")
 
-# Test if rotations work
-test_list = []
-for i in range(1, 4):
-    temp = [np.rot90(array, k = i, axes = (1, 0)) for array in array_list]
-    test_list.append(temp)
+# # Test if rotations work
+# test_list = []
+# for i in range(1, 4):
+#     temp = [np.rot90(array, k = i, axes = (1, 0)) for array in array_list]
+#     test_list.append(temp)
     
-# Plot test rotations
-fig, axs = plt.subplots(2, 2)
-fig.suptitle('Rotations')
-axs[0, 0].imshow(array_list[0][:,:,42])
-axs[0, 0].set_title("0 deg")
-axs[0, 1].imshow(test_list[0][0][:,:,42])
-axs[0, 1].set_title("90 deg")
-axs[1, 0].imshow(test_list[1][0][:,:,42])
-axs[1, 0].set_title("180 deg")
-axs[1, 1].imshow(test_list[2][0][:,:,42])
-axs[1, 1].set_title("270 deg")
-plt.tight_layout()
+# # Plot test rotations
+# fig, axs = plt.subplots(2, 2)
+# fig.suptitle('Rotations')
+# axs[0, 0].imshow(array_list[0][:,:,42])
+# axs[0, 0].set_title("0 deg")
+# axs[0, 1].imshow(test_list[0][0][:,:,42])
+# axs[0, 1].set_title("90 deg")
+# axs[1, 0].imshow(test_list[1][0][:,:,42])
+# axs[1, 0].set_title("180 deg")
+# axs[1, 1].imshow(test_list[2][0][:,:,42])
+# axs[1, 1].set_title("270 deg")
+# plt.tight_layout()
