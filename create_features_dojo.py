@@ -53,18 +53,16 @@ r_list = sorted(r_list, key = numbers)
 #     with rio.open(r_list[0]) as raster:
 #         print(raster.read().shape)
 
-# Create list of raster bounds and add to df
+# Create list of raster bounds
 bounds_list = []
 with featdir:
     for file in r_list:
         with rio.open(file) as raster:
-            bounds_list.append(list(raster.bounds))
+            bounds_list.append(np.array(raster.bounds, dtype = np.int32))
             print(file, "done")
 
-targets["bounds"] = bounds_list # doesn't work, it is pivoted on maxy etc, fix
 
-
-# Create list of raster array and add to df
+# Create list of feature arrays
 array_list = []
 with featdir:
     for file in r_list:
@@ -72,9 +70,21 @@ with featdir:
             array_list.append(np.moveaxis(raster.read(), 0, 2))
             print(file, "done")
 
-targets["features"] = array_list
+# Insert features and bounds
+targets.insert(1, "features", array_list)
+targets.insert(len(targets.columns)-1, "bounds", bounds_list)
 
-# targets.to_file("targets.json", driver="GeoJSON")
+# Rename OC col to SOC
+targets.rename(columns = {"OC": "SOC"}, inplace = True)
+
+# Save to json
+targets[["POINT_ID", "GPS_LAT", "GPS_LONG", "geometry"]].to_file("IDs_geom.json", driver="GeoJSON")
+targets[["SOC", "features", "POINT_ID", "GPS_LAT", "GPS_LONG", "bounds"]].to_csv("targs_feats_IDs.csv")
+
+
+
+
+
 
 # # Test if rotations work
 # test_list = []
