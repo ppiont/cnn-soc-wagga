@@ -35,5 +35,11 @@ germany.crs = "epsg:4326"
 targets = sjoin(gdf, germany, op = "within")
 
 # remove unnecessary columns and save
-targets_fix = targets[df.columns.to_list()]
-targets_fix.to_csv("germany_targets.csv")
+targets = targets[df.columns.to_list()]
+# POINT_ID is stored as a string in the Excel file, so I recast to integer
+targets["POINT_ID"] = pd.to_numeric(targets["POINT_ID"], downcast='integer')
+# I rename OC to SOC
+targets = targets.rename(columns={"OC": "SOC"})
+# I save as csv and pkl
+targets.to_csv("germany_targets.csv")
+targets.to_pickle("germany_targets.pkl")

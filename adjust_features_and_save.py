@@ -7,17 +7,13 @@ Created on Mon Aug  3 15:31:24 2020
 """
 
 import os
-import sys
 import path
 import re
 import glob
 import rasterio as rio
-from rasterio.plot import show
 import numpy as np
 import geopandas as gpd
 import pandas as pd
-import matplotlib.pyplot as plt
-from scipy.ndimage import rotate
 
 # Set some pandas options
 pd.options.display.max_columns = 500
@@ -32,14 +28,54 @@ if os.getcwd().split(r"/")[-1] != "data":
 d = path.Path(os.getcwd())
 featdir = d / "features"
 
-# Load targets
-gdf = gpd.read_file("germany_targets.csv", GEOM_POSSIBLE_NAMES = "geometry", 
-            KEEP_GEOM_COLUMNS = "NO").set_crs("EPSG:4326")
+df = pd.read_pickle("germany_targets.pkl")
+targets = (gpd.GeoDataFrame(df)
+           [["SOC", "POINT_ID", "GPS_LAT", "GPS_LONG", "geometry"]]
+           .reset_index(drop=True)
+           )
 
-# Remove unwanted cols and reindex
-targets = gdf[["OC", "POINT_ID", "GPS_LAT", "GPS_LONG", "geometry"]].reset_index(drop = True)
 
-## Get sorted list of raster files
+# I define a func to assign multiple columns with some function
+# based on some condition
+def multi_assign(df, transform_fn, condition):
+    df_to_use = df.copy()
+
+    return (df_to_use
+            .assign(
+                **{col: transform_fn(df_to_use[col])
+                   for col in condition(df_to_use)})
+            )
+
+
+# I define a function to downcast numeric values into the type allowing for
+# the smallest memory use
+def downcast_all(df, target_type, initial_type=None):
+
+    if initial_type is None:
+        initial_type = target_type
+
+    df_to_use = df.copy()
+
+    def transform_fn(x):
+
+        return pd.to_numeric(x, downcast=target_type)
+
+    def condition(x):
+
+        return list(x
+                    .select_dtypes(include=[initial_type])
+                    .columns)
+
+    return multi_assign(df_to_use, transform_fn, condition)
+
+
+targets = (targets
+           .pipe(downcast_all, "float")
+           .pipe(downcast_all, "integer")
+           )
+
+
+# Get sorted list of raster files
 # Jump into feature directory and grab file names of GTiffs
 with featdir:
     r_list = glob.glob("*.tif")
