@@ -74,23 +74,26 @@ targets = (targets
            .pipe(downcast_all, "integer")
            )
 
-
 # Get sorted list of raster files
 # Jump into feature directory and grab file names of GTiffs
 with featdir:
     r_list = glob.glob("*.tif")
+
+
 # Define function to extract numbers from file names
 def numbers(x):
-    return(int(re.split("_|\.", x)[1]))
+    return(int(re.split(r"_|\.", x)[1]))
+
+
 # Sort based on numerical pattern (instead of alphabetical)
-r_list = sorted(r_list, key = numbers)
+r_list = sorted(r_list, key=numbers)
 
 # Create list of raster bounds
 bounds_list = []
 with featdir:
     for file in r_list:
         with rio.open(file) as raster:
-            bounds_list.append(np.array(raster.bounds, dtype = np.int32))
+            bounds_list.append(np.array(raster.bounds, dtype=np.int32))
             print(file, "done")
 
 # Create list of feature arrays
@@ -106,15 +109,13 @@ targets.insert(1, "features", array_list)
 targets.insert(len(targets.columns)-1, "bounds", bounds_list)
 
 # Rename OC col to SOC
-targets.rename(columns = {"OC": "SOC"}, inplace = True)
+targets.rename(columns={"OC": "SOC"}, inplace=True)
 
-# Save to json
-targets[["POINT_ID", "GPS_LAT", "GPS_LONG", "geometry"]].to_file("IDs_geom.json", driver="GeoJSON")
-targets[["SOC", "features", "POINT_ID", "GPS_LAT", "GPS_LONG", "bounds"]].to_pickle("targs_feats_IDs.pkl")
-
-
-
-
+# Save to geometry and data
+(targets[["POINT_ID", "GPS_LAT", "GPS_LONG", "geometry"]]
+ .to_file("IDs_geom.json", driver="GeoJSON"))
+(targets[["SOC", "features", "POINT_ID", "GPS_LAT", "GPS_LONG", "bounds"]]
+ .to_pickle("targs_feats_IDs.pkl"))
 
 
 # # Test if rotations work
@@ -122,7 +123,7 @@ targets[["SOC", "features", "POINT_ID", "GPS_LAT", "GPS_LONG", "bounds"]].to_pic
 # for i in range(1, 4):
 #     temp = [np.rot90(array, k = i, axes = (1, 0)) for array in array_list]
 #     test_list.append(temp)
-    
+
 # # Plot test rotations
 # fig, axs = plt.subplots(2, 2)
 # fig.suptitle('Rotations')

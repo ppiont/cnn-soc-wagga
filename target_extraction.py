@@ -19,10 +19,13 @@ if "data" not in os.getcwd():
 df = pd.read_csv("LUCAS_TOPSOIL_v1.csv")
 
 # create geodataframe with geometry
-gdf = gpd.GeoDataFrame(df, geometry = gpd.points_from_xy(df.GPS_LONG, df.GPS_LAT), crs = "EPSG:4326")
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(
+                        df.GPS_LONG, df.GPS_LAT), crs="EPSG:4326")
 
 # get world boundaries
-shpfilename = shpreader.natural_earth(resolution = '10m', category = 'cultural', name = 'admin_0_countries')
+shpfilename = shpreader.natural_earth(resolution='10m',
+                                      category='cultural',
+                                      name='admin_0_countries')
 
 # read the shapefile using geopandas
 world = gpd.read_file(shpfilename)
@@ -32,7 +35,7 @@ germany = world[world['ADMIN'] == 'Germany']
 germany.crs = "epsg:4326"
 
 # select only observations within germany
-targets = sjoin(gdf, germany, op = "within")
+targets = sjoin(gdf, germany, op="within")
 
 # remove unnecessary columns and save
 targets = targets[df.columns.to_list()]
