@@ -12,19 +12,25 @@ import cartopy.io.shapereader as shpreader
 
 
 def target_extract(path, country, lat_col, lon_col, crs='EPSG:4326'):
-    """
-    Extract records whose location lies within a given country.
+    """Extract records whose location lies within a given country.
 
-    Args:
-        path (str): Path to the input table.
-        country (str): Country to clip to.
-        lat_col (str): Name of latitude column.
-        lon_col (str): Name of longitude column.
-        crs (str): CRS of the input geometry. Defaults to 'EPSG:4326'.
+    Parameters
+    ----------
+    path : str
+        Path to the input table.
+    country : str
+        Country to clip to.
+    lat_col : str
+        Name of latitude column.
+    lon_col : str
+        Name of longitude column.
+    crs : str, optional
+        CRS of the input geometry. Defaults to 'EPSG:4326'.
 
     Returns
     -------
-        A CSV containing the input dataframe's values clipped to the country.
+    GeoDataFrame
+        A georeferenced table containing `path` values clipped to `country`.
 
     """
     # Read input from path
