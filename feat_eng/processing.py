@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug  3 15:31:24 2020
+Created on Sun Nov 29 17:30:56 2020
 
 @author: peter
 """
+
+import numpy as np
+import pathlib
+
+data_dir = pathlib.Path('data/')
+
+
+# categorical_features = np.argwhere(np.array(
+# [len(set(train[:,:,:,x])) for x in range(train.shape[3])]) <= 5).flatten()
+
+
+
+
+
+
+
 
 import os
 import path
