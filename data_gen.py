@@ -10,11 +10,8 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 import tensorflow as tf
 import numpy as np
-import os
-
-# Go to data folder if not already in it
-if os.getcwd().split(r"/")[-1] != "data":
-    os.chdir("data/")
+import pathlib
+import geopandas as gpd
 
 
 def minmax_array(array, axis=(0, 1, 2)):
@@ -34,29 +31,42 @@ def minmax_array(array, axis=(0, 1, 2)):
 
     """
     # Compute the mins along the axis
-    x_mins = numerical.min(axis=axis)
+    x_mins = array.min(axis=axis)
     # Compute the maxs along hte axis
-    x_maxs = numerical.max(axis=axis)
+    x_maxs = array.max(axis=axis)
 
     # Compute and return the array normalized to 0-1 range.
     return (array-x_mins)/(x_maxs-x_mins)
 
+# ------------------- Organization ------------------------------------------ #
 
-# --------------------------- Read and prep data --------------------------- #
-data = pd.read_pickle("targs_feats_IDs.pkl")
+data_dir = pathlib.Path('data/')
 
-train, test = train_test_split(data, test_size=0.1, random_state=43)
+# ------------------- Read and prep data ------------------------------------ #
+# Load target data
+target_data = gpd.read_file(data_dir.joinpath('germany_targets.geojson'),
+                        driver="GeoJSON")
+# Get target array
+targets = target_data.OC.values
 
-train_x = np.stack(train["features"])
-train_y = train["SOC"]
+# Load feature array
+features = np.load(data_dir.joinpath('numerical_feats.npy'))
+
+# Split into train and test data
+x_train, x_test, y_train, y_test = train_test_split(features, targets,
+                                                    test_size=0.1,
+                                                    random_state=43)
+
+x_train = minmax_array(x_train)
+
 
 datagen = tf.keras.preprocessing.image.ImageDataGenerator(
                                         featurewise_center=True,
                                         featurewise_std_normalization=True)
 
-datagen.fit(train_x)
+datagen.fit(x_train)
 
-it = datagen.flow(train_x, train_y, batch_size=32)
+it = datagen.flow(x_train, y_train, batch_size=32)
 
 # categorical_features = np.argwhere(np.array(
 # [len(set(train[:,:,:,x])) for x in range(train.shape[3])]) <= 5).flatten()
@@ -64,13 +74,14 @@ it = datagen.flow(train_x, train_y, batch_size=32)
 
 # ----------------------- Define Neural Network Class ----------------------- #
 class neural_net(tf.keras.Model):
-    """ Summary or description of the function/class.
+    """Neural net subclass of ´tf.keras.Model´.
 
     Parameters
     ----------
 
     Returns
     -------
+
 
     """
 
@@ -144,4 +155,4 @@ train_loss = tf.keras.metrics.Mean(name='train_loss')
 val_loss = tf.keras.metrics.Mean(name='val_loss')
 
 
-model.fit(it, steps_per_epoch=len(train) / 32, epochs=15)
+model.fit(it, steps_per_epoch=len(x_train) / 32, epochs=15)
