@@ -16,6 +16,32 @@ import os
 if os.getcwd().split(r"/")[-1] != "data":
     os.chdir("data/")
 
+
+def minmax_array(array, axis=(0, 1, 2)):
+    """Min-max scale an array along some axis or axes.
+
+    Parameters
+    ----------
+    array : ndarray
+        Array to be scaled.
+    axis : int or tuple of int, optional
+        The axis or axes along which to scale. The default is (0, 1, 2).
+
+    Returns
+    -------
+    ndarray
+        The scaled array.
+
+    """
+    # Compute the mins along the axis
+    x_mins = numerical.min(axis=axis)
+    # Compute the maxs along hte axis
+    x_maxs = numerical.max(axis=axis)
+
+    # Compute and return the array normalized to 0-1 range.
+    return (array-x_mins)/(x_maxs-x_mins)
+
+
 # --------------------------- Read and prep data --------------------------- #
 data = pd.read_pickle("targs_feats_IDs.pkl")
 
@@ -39,16 +65,15 @@ it = datagen.flow(train_x, train_y, batch_size=32)
 # ----------------------- Define Neural Network Class ----------------------- #
 class neural_net(tf.keras.Model):
     """ Summary or description of the function/class.
-    
-    Parameters:
-    
-    ----------------------------------
 
-    Returns:
-    ----------------------------------
+    Parameters
+    ----------
+
+    Returns
+    -------
 
     """
-    
+
     def __init__(self):
         super(neural_net, self).__init__()
 
