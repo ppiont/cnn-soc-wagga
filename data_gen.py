@@ -12,31 +12,9 @@ import tensorflow as tf
 import numpy as np
 import pathlib
 import geopandas as gpd
+from feat_eng.funcs import min_max
 
 
-def minmax_array(array, axis=(0, 1, 2)):
-    """Min-max scale an array along some axis or axes.
-
-    Parameters
-    ----------
-    array : ndarray
-        Array to be scaled.
-    axis : int or tuple of int, optional
-        The axis or axes along which to scale. The default is (0, 1, 2).
-
-    Returns
-    -------
-    ndarray
-        The scaled array.
-
-    """
-    # Compute the mins along the axis
-    x_mins = array.min(axis=axis)
-    # Compute the maxs along hte axis
-    x_maxs = array.max(axis=axis)
-
-    # Compute and return the array normalized to 0-1 range.
-    return (array-x_mins)/(x_maxs-x_mins)
 
 # ------------------- Organization ------------------------------------------ #
 
@@ -45,20 +23,23 @@ data_dir = pathlib.Path('data/')
 # ------------------- Read and prep data ------------------------------------ #
 # Load target data
 target_data = gpd.read_file(data_dir.joinpath('germany_targets.geojson'),
-                        driver="GeoJSON")
+                            driver="GeoJSON")
 # Get target array
 targets = target_data.OC.values
 
 # Load feature array
 features = np.load(data_dir.joinpath('numerical_feats.npy'))
 
+
 # Split into train and test data
 x_train, x_test, y_train, y_test = train_test_split(features, targets,
                                                     test_size=0.1,
                                                     random_state=43)
+del features
 
-x_train = minmax_array(x_train)
+x_train = min_max(x_train)
 
+x_train = x_train.astype(np.float32)
 
 datagen = tf.keras.preprocessing.image.ImageDataGenerator(
                                         featurewise_center=True,
@@ -114,7 +95,19 @@ class neural_net(tf.keras.Model):
 
     # Define the forward propagation
     def call(self, inputs):
+        """Do something.
 
+        Parameters
+        ----------
+        inputs : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        x : TYPE
+            DESCRIPTION.
+
+        """
         # Run CNN layers
         x = self.conv1(inputs)
         x = self.bnorm1(x)
@@ -144,7 +137,8 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 loss_fn = tf.keras.losses.MeanSquaredError()
 
 # Compile model
-model.compile(optimizer=optimizer, loss=loss_fn)
+model.compile(optimizer=optimizer, loss=loss_fn,
+              metrics=[tf.keras.metrics.MeanAbsoluteError()])
 
 # Define callbacks
 # early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True)
@@ -155,4 +149,4 @@ train_loss = tf.keras.metrics.Mean(name='train_loss')
 val_loss = tf.keras.metrics.Mean(name='val_loss')
 
 
-model.fit(it, steps_per_epoch=len(x_train) / 32, epochs=15)
+model.fit(it, steps_per_epoch=len(x_train) / 32, epochs=50, validation_split=0.1)
