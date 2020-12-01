@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Nov 18 16:27:30 2020
+Created on Wed Nov 18 16:27:30 2020.
 
 @author: peter
 """
 
 from sklearn.model_selection import train_test_split
-import pandas as pd
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import tensorflow as tf
 import numpy as np
 import pathlib
@@ -15,12 +15,13 @@ import geopandas as gpd
 from feat_eng.funcs import min_max
 
 
-
 # ------------------- Organization ------------------------------------------ #
 
 data_dir = pathlib.Path('data/')
+seed = 43
 
 # ------------------- Read and prep data ------------------------------------ #
+
 # Load target data
 target_data = gpd.read_file(data_dir.joinpath('germany_targets.geojson'),
                             driver="GeoJSON")
@@ -34,20 +35,37 @@ features = np.load(data_dir.joinpath('numerical_feats.npy'))
 # Split into train and test data
 x_train, x_test, y_train, y_test = train_test_split(features, targets,
                                                     test_size=0.1,
-                                                    random_state=43)
+                                                    random_state=seed)
 del features
 
 x_train = min_max(x_train)
 
 x_train = x_train.astype(np.float32)
 
-datagen = tf.keras.preprocessing.image.ImageDataGenerator(
-                                        featurewise_center=True,
-                                        featurewise_std_normalization=True)
+batch_size = 32
 
-datagen.fit(x_train)
+train_datagen = ImageDataGenerator(horizontal_flip=True,
+                                   vertical_flip=True,
+                                   validation_split=0.2)
 
-it = datagen.flow(x_train, y_train, batch_size=32)
+train_generator = train_datagen.flow(x_train, y_train,
+                                     batch_size=batch_size,
+                                     subset='training',
+                                     seed=seed)
+
+validation_generator = train_datagen.flow(x_train, y_train,
+                                          batch_size=batch_size,
+                                          subset='validation',
+                                          seed=seed)
+type(train_generator)
+
+# datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+#                                         featurewise_center=True,
+#                                         featurewise_std_normalization=True)
+
+# datagen.fit(x_train)
+
+# it = datagen.flow(x_train, y_train, batch_size=32)
 
 # categorical_features = np.argwhere(np.array(
 # [len(set(train[:,:,:,x])) for x in range(train.shape[3])]) <= 5).flatten()
@@ -127,26 +145,37 @@ class neural_net(tf.keras.Model):
         return x
 
 
-# Create an instance of neural network model
-model = neural_net()
-
 # Define optimizer
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-
 # Define loss function
 loss_fn = tf.keras.losses.MeanSquaredError()
+
+# Create an instance of neural network model
+model = neural_net()
 
 # Compile model
 model.compile(optimizer=optimizer, loss=loss_fn,
               metrics=[tf.keras.metrics.MeanAbsoluteError()])
 
 # Define callbacks
-# early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True)
-# learning_rate_reduce = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=4, verbose=0, mode='auto', min_delta=0.0001, cooldown=0, min_lr=0)
+# early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+#                                                   patience=6,
+#                                                   restore_best_weights=True)
+# learning_rate_reduce = tf.keras.callbacks.ReduceLROnPlateau(
+#                        monitor='val_loss', factor=0.1, patience=4,
+#                        verbose=0, mode='auto', min_delta=0.0001, cooldown=0,
+#                        min_lr=0)
+
 
 # Metrics
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 val_loss = tf.keras.metrics.Mean(name='val_loss')
 
+model.fit_generator(train_generator,
+                    steps_per_epoch=train_generator.samples//batch_size,
+                    validation_data=validation_generator,
+                    validation_steps=validation_generator.samples//batch_size,
+                    epochs=50)
 
-model.fit(it, steps_per_epoch=len(x_train) / 32, epochs=50, validation_split=0.1)
+# model.fit(it, steps_per_epoch=len(x_train) / 32, epochs=50,
+#           validation_split=0.1)

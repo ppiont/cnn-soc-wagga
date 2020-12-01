@@ -41,3 +41,14 @@ def min_max(array, axis=(0, 1, 2)):
     # Compute and return the array normalized to 0-1 range.
     print(f'Removed from axis: {zero_channels_idx}')
     return (array-x_mins)/diff
+
+
+def crop_center(arr, crop_x, crop_y):
+    """Crop an array, maintaining center."""
+    if len(arr.shape) > 3 and np.shape[0] == 1:
+        arr = np.squeeze(arr)
+    y, x, c = arr.shape
+    start_x = x//2 - crop_x//2
+    start_y = y//2 - crop_y//2
+
+    return arr[start_y:start_y+crop_y, start_x:start_x+crop_x, :]
