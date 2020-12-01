@@ -53,7 +53,7 @@ it = datagen.flow(x_train, y_train, batch_size=32)
 # [len(set(train[:,:,:,x])) for x in range(train.shape[3])]) <= 5).flatten()
 
 
-# ----------------------- Define Neural Network Class ----------------------- #
+# ------------------- Define Neural Network Class --------------------------- #
 class neural_net(tf.keras.Model):
     """Neural net subclass of ´tf.keras.Model´.
 

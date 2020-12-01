@@ -10,17 +10,17 @@ from skopt.callbacks import CheckpointSaver
 from skopt import load
 
 
-########### Define Neural Network Class ############
+# ------------------- Define model class -------------------------------------#
 
 class NN_model(tf.keras.Model):
 
-  #Make sure all necessary hyperparameters are inputs in the __init__ function after 'self'
-  def __init__(self,regu=1e-6,num_neurons=16):
-  	#network layers etc.
-  
-  def call(self, x):
-	#forward propagation
-	return x
+    #Make sure all necessary hyperparameters are inputs in the __init__ function after 'self'
+    def __init__(self,regu=1e-6,num_neurons=16):
+    #network layers etc.
+      
+    def call(self, x):
+      	#forward propagation
+      	return x
   	
 ####################################################
 
