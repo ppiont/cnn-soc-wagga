@@ -8,8 +8,8 @@ Created on Mon Nov 30 18:32:01 2020.
 import numpy as np
 
 
-def min_max(array, axis=(0, 1, 2)):
-    """Min-max scale an array along channels or features.
+def min_max(array, axis=(0, 1, 2), rm_no_variance=True):
+    """Min-max scale an array and optionally remove features with no variance.
 
     Parameters
     ----------
@@ -22,6 +22,8 @@ def min_max(array, axis=(0, 1, 2)):
     -------
     ndarray
         The scaled array.
+    zero_channels_idx : ndarray, depending on `rm_no_variance`
+        The idx of zero variance features/channels that were removed.
 
     """
     # Compute the mins along the axis
@@ -30,17 +32,23 @@ def min_max(array, axis=(0, 1, 2)):
     x_maxs = array.max(axis=axis)
     # Get the difference
     diff = x_maxs-x_mins
-    # Get index of irrelevant features (max == min)
-    zero_channels_idx = np.where(diff == 0)[0]
-    # Remove irrelevant features
-    array = np.delete(array, zero_channels_idx, -1)
-    diff = np.delete(diff, zero_channels_idx)
-    x_maxs = np.delete(x_maxs, zero_channels_idx)
-    x_mins = np.delete(x_mins, zero_channels_idx)
 
-    # Compute and return the array normalized to 0-1 range.
-    print(f'Removed from axis: {zero_channels_idx}')
-    return (array-x_mins)/diff
+    if rm_no_variance is True:
+        # Get index of features with no variance (max == min)
+        zero_channels_idx = np.where(diff == 0)[0]
+        # Remove features with no variance
+        array = np.delete(array, zero_channels_idx, -1)
+        diff = np.delete(diff, zero_channels_idx)
+        x_maxs = np.delete(x_maxs, zero_channels_idx)
+        x_mins = np.delete(x_mins, zero_channels_idx)
+        print(f'Removed from axis: {zero_channels_idx}')
+
+        # Compute and return the array normalized to 0-1 range and
+        # optionally return zero variance indexes
+        return (array-x_mins)/diff, zero_channels_idx
+
+    else:
+        return (array-x_mins)/diff
 
 
 def crop_center(arr, crop_x, crop_y):

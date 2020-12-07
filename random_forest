@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Dec  1 11:32:05 2020.
+
+@author: peter
+"""
+import pathlib
+
+import numpy as np
+import geopandas as gpd
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score, cross_validate, KFold
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import make_scorer
+from sklearn import preprocessing
+from sklearn.metrics import mean_squared_error  # MSE
+from sklearn.metrics import explained_variance_score  # MEC
+
+from custom_metrics.metrics import mean_error, lin_ccc  # custom
+from feat_eng.funcs import min_max
+
+
+# ------------------- Organization ------------------------------------------ #
+
+data_dir = pathlib.Path('data/')
+SEED = 43
+
+# ------------------- Read and prep data ------------------------------------ #
+
+# Load target data
+target_data = gpd.read_file(data_dir.joinpath('germany_targets.geojson'),
+                            driver="GeoJSON")
+# Get target array
+targets = target_data.OC.values
+
+# Load feature array
+features = np.load(data_dir.joinpath('numerical_feats.npy'))
+
+# Get the center pixel (along axes=(1, 2))
+features = features[:, features.shape[1]//2, features.shape[2]//2, :]
+
+# Split into train and test data
+x_train, x_test, y_train, y_test = train_test_split(features, targets,
+                                                    test_size=0.1,
+                                                    random_state=SEED)
+# # Min-max normalize  the train data, also removing features with 0 variance
+# x_train, no_variance_idx = min_max(x_train, axis=0)
+
+# # Min-max normalize the test data and remove features that were removed from
+# # the train data
+# x_test = min_max(x_test, axis=0, rm_no_variance=False)
+# x_test = np.delete(x_test, no_variance_idx, -1)
+
+# Convert train data to float32
+x_train = x_train.astype(np.float32)
+y_train = y_train.astype(np.float32)
+x_test = x_test.astype(np.float32)
+y_train = y_train.astype(np.float32)
+print('Training Features Shape:', x_train.shape)
+print('Training Labels Shape:', y_train.shape)
+print('Testing Features Shape:', x_test.shape)
+print('Testing Labels Shape:', y_test.shape)
+
+# ------------------- Random Forest ----------------------------------------- #
+
+# Instantiate model with 1000 decision trees
+# rf = RandomForestRegressor(n_estimators=1000, random_state=SEED, n_jobs=-1)
+# Train mode with cross-validation
+# scores = cross_val_score(rf, x_train, y_train, cv=5, scoring='mse')
+
+
+rf = make_pipeline(preprocessing.MinMaxScaler(),
+                   RandomForestRegressor(n_estimators=1000, random_state=SEED,
+                                         n_jobs=-1))
+
+mse = make_scorer(mean_squared_error, greater_is_better=False)
+me = make_scorer(mean_error, greater_is_better=False)
+mec = make_scorer(explained_variance_score)
+ccc = make_scorer(lin_ccc)
+metrics = {'MSE': mse, 'ME': me, 'MEC': mec, 'CCC': ccc}
+
+scores = cross_validate(rf, x_train, y_train,
+                        scoring=metrics,
+                        cv=KFold(n_splits=5, shuffle=True, random_state=SEED))
+
+
+# test_score = scores['test_score'].mean()
+
+from pprint import pprint as pp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
