@@ -16,13 +16,13 @@ import cartopy.feature as cfeature
 import cartopy.io.shapereader as shpreader
 
 plt.style.use('tableau-colorblind10')
-mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif", 
-                     "xtick.labelsize": "small", "ytick.labelsize": "small", 
-                     "xtick.major.size" : 0, "xtick.minor.size" : 0, 
-                     "ytick.major.size" : 0, "ytick.minor.size" : 0, 
-                     "axes.titlesize":"medium", "figure.titlesize": "medium", 
-                     "figure.figsize": (5, 5), "figure.dpi": 600, 
-                     "figure.autolayout": True, "savefig.format": "pdf", 
+mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif",
+                     "xtick.labelsize": "small", "ytick.labelsize": "small",
+                     "xtick.major.size": 0, "xtick.minor.size": 0,
+                     "ytick.major.size": 0, "ytick.minor.size": 0,
+                     "axes.titlesize": "medium", "figure.titlesize": "medium",
+                     "figure.figsize": (5, 5), "figure.dpi": 450,
+                     "figure.autolayout": True, "savefig.format": "pdf",
                      "savefig.transparent": True, "image.cmap": "cool"})
 
 if os.getcwd().split(r"/")[-1] != "data":

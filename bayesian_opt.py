@@ -15,11 +15,10 @@ class NN_model(tf.keras.Model):
 
     # All hyperparams are inputs in __init__ function after 'self'
     def __init__(self, regu=1e-6, num_neurons=16):
-
         # Network layers etc.
+        pass
 
     def call(self, x):
-
         # Forward propagation
         return x
 

@@ -8,23 +8,39 @@ Created on Tue Dec  1 11:32:05 2020.
 import pathlib
 
 import numpy as np
+# import pandas as pd
 import geopandas as gpd
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import cross_val_score, cross_validate, KFold
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.pipeline import make_pipeline
-from sklearn.metrics import make_scorer
-from sklearn import preprocessing
-from sklearn.metrics import mean_squared_error  # MSE
-from sklearn.metrics import explained_variance_score  # MEC
+from skopt.learning import RandomForestRegressor
+from skopt import BayesSearchCV
+from skopt.space import Integer, Categorical  # , Real
+from tqdm import tqdm
+from sklearn.preprocessing import MinMaxScaler
+# from sklearn.model_selection import KFold, RepeatedKFold
+# from skopt.plots import plot_objective, plot_histogram, plot_evaluations
+# from skopt import dump, load
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
-from custom_metrics.metrics import mean_error, lin_ccc  # custom
-from feat_eng.funcs import min_max
+# from custom_metrics.metrics import mean_error, lin_ccc  # custom
+# from feat_eng.funcs import min_max  # custom
 
+# ------------------- Options ----------------------------------------------- #
+
+plt.style.use('tableau-colorblind10')
+mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif",
+                     "xtick.labelsize": "small", "ytick.labelsize": "small",
+                     "xtick.major.size": 0, "xtick.minor.size": 0,
+                     "ytick.major.size": 0, "ytick.minor.size": 0,
+                     "axes.titlesize": "medium", "figure.titlesize": "medium",
+                     "figure.figsize": (5, 5), "figure.dpi": 450,
+                     "figure.autolayout": True, "savefig.format": "svg",
+                     "savefig.transparent": True, "image.cmap": "cool"})
 
 # ------------------- Organization ------------------------------------------ #
 
 data_dir = pathlib.Path('data/')
+optimizer_dir = pathlib.Path('optimizers/')
 SEED = 43
 
 # ------------------- Read and prep data ------------------------------------ #
@@ -34,17 +50,165 @@ target_data = gpd.read_file(data_dir.joinpath('germany_targets.geojson'),
                             driver="GeoJSON")
 # Get target array
 targets = target_data.OC.values
-
 # Load feature array
 features = np.load(data_dir.joinpath('numerical_feats.npy'))
-
 # Get the center pixel (along axes=(1, 2))
 features = features[:, features.shape[1]//2, features.shape[2]//2, :]
-
 # Split into train and test data
 x_train, x_test, y_train, y_test = train_test_split(features, targets,
                                                     test_size=0.1,
                                                     random_state=SEED)
+
+# Remove features with 0 variance
+# First get their index
+rm_idx = np.where(np.var(x_train, axis=0) == 0)[0]
+# Then delete features with 0 variance
+x_train = np.delete(x_train, rm_idx, -1)
+x_test = np.delete(x_test, rm_idx, -1)
+
+# Normalize data
+scaler = MinMaxScaler()
+scaler.fit(x_train)
+x_train = scaler.transform(x_train)
+x_test = scaler.transform(x_test)
+
+# Convert data to float32
+x_train = x_train.astype(np.float32)
+y_train = y_train.astype(np.float32)
+x_test = x_test.astype(np.float32)
+y_test = y_test.astype(np.float32)
+
+# print('Training Features Shape:', x_train.shape)
+# print('Training Targets Shape:', y_train.shape)
+# print('Testing Features Shape:', x_test.shape)
+# print('Testing Targets Shape:', y_test.shape)
+
+# ------------------- Random Forest ----------------------------------------- #
+
+# # Define progress monitoring object
+# class tqdm_skopt(object):
+#     def __init__(self, **kwargs):
+#         self._bar = tqdm(**kwargs)
+
+#     def __call__(self, res):
+#         self._bar.update()
+
+
+# # Define estimator
+# rf = RandomForestRegressor(n_jobs=-1, random_state=SEED)
+
+# # Define search space
+# n_features = x_train.shape[-1]
+# space = dict()
+# space['n_estimators'] = Integer(100, 1500)
+# space['criterion'] = Categorical(['mse', 'mae'])
+# space['max_features'] = Integer(1, n_features)
+# # space['max_depth'] = Integer(1, 20)
+# # space['min_samples_split'] = Integer(2, 100)
+# # space['min_samples_leaf'] = Integer(1, 100)
+
+
+# # Define optimizer
+# n_calls = 50
+# # cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
+# opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
+#                     n_jobs=-1,
+#                     cv=5, random_state=SEED)
+
+# # Fit optimizer
+# opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
+#                                                desc="Bayesian Search")])
+
+# Save optimizer
+# dump(opt, 'optimizers/RF_opt1.pkl')
+
+# plot_objective(opt.optimizer_results_[0], n_minimum_search=int(1e8))
+
+# _ = plot_evaluations(opt.optimizer_results_[0])
+# plt.show()
+# _.savefig('test.svg', format='svg')
+
+
+# ------------------- This worked ------------------------------------------- #
+
+# Define progress monitoring object
+class tqdm_skopt(object):
+    def __init__(self, **kwargs):
+        self._bar = tqdm(**kwargs)
+
+    def __call__(self, res):
+        self._bar.update()
+
+
+# Define estimator
+rf = RandomForestRegressor(random_state=SEED, n_jobs=-1)
+
+# Define search space
+n_features = x_train.shape[-1]
+space = {'n_estimators': Integer(100, 1000),
+         'criterion': Categorical(['mse', 'mae']),
+         'max_features': Integer(1, n_features)}
+# ,
+# 'max_depth': Integer(1, 15),
+# 'min_samples_split': Integer(2, 100),
+# 'min_samples_leaf': Integer(1, 100)
+#  }
+
+
+# Define optimizer
+n_calls = 50
+opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
+                    n_jobs=-1, cv=5, random_state=SEED)
+
+opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
+                                    desc="Gaussian Process")])
+
+
+
+
+
+
+
+
+
+# Define pipeline
+# pipe = make_pipeline(preprocessing.MinMaxScaler(), opt)
+
+
+
+
+# Fit
+# pipe.fit(x_train, y_train)
+
+
+
+
+
+
+
+
+
+
+# mse = make_scorer(mean_squared_error, greater_is_better=False)
+# me = make_scorer(mean_error, greater_is_better=False)
+# mec = make_scorer(explained_variance_score)
+# ccc = make_scorer(lin_ccc)
+# metrics = {'MSE': mse, 'ME': me, 'MEC': mec, 'CCC': ccc}
+
+# scores = cross_validate(rf, x_train, y_train,
+#                         scoring=metrics,
+#                         cv=KFold(n_splits=5, shuffle=True, random_state=SEED))
+
+
+# test_score = scores['test_score'].mean()
+
+
+
+
+
+
+
+
 # # Min-max normalize  the train data, also removing features with 0 variance
 # x_train, no_variance_idx = min_max(x_train, axis=0)
 
@@ -53,50 +217,11 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
 # x_test = min_max(x_test, axis=0, rm_no_variance=False)
 # x_test = np.delete(x_test, no_variance_idx, -1)
 
-# Convert train data to float32
-x_train = x_train.astype(np.float32)
-y_train = y_train.astype(np.float32)
-x_test = x_test.astype(np.float32)
-y_train = y_train.astype(np.float32)
-print('Training Features Shape:', x_train.shape)
-print('Training Labels Shape:', y_train.shape)
-print('Testing Features Shape:', x_test.shape)
-print('Testing Labels Shape:', y_test.shape)
-
-# ------------------- Random Forest ----------------------------------------- #
 
 # Instantiate model with 1000 decision trees
 # rf = RandomForestRegressor(n_estimators=1000, random_state=SEED, n_jobs=-1)
 # Train mode with cross-validation
 # scores = cross_val_score(rf, x_train, y_train, cv=5, scoring='mse')
-
-
-rf = make_pipeline(preprocessing.MinMaxScaler(),
-                   RandomForestRegressor(n_estimators=1000, random_state=SEED,
-                                         n_jobs=-1))
-
-mse = make_scorer(mean_squared_error, greater_is_better=False)
-me = make_scorer(mean_error, greater_is_better=False)
-mec = make_scorer(explained_variance_score)
-ccc = make_scorer(lin_ccc)
-metrics = {'MSE': mse, 'ME': me, 'MEC': mec, 'CCC': ccc}
-
-scores = cross_validate(rf, x_train, y_train,
-                        scoring=metrics,
-                        cv=KFold(n_splits=5, shuffle=True, random_state=SEED))
-
-
-# test_score = scores['test_score'].mean()
-
-from pprint import pprint as pp
-
-
-
-
-
-
-
-
 
 
 
