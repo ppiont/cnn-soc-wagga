@@ -16,7 +16,7 @@ from skopt import BayesSearchCV
 from skopt.space import Integer, Categorical  # , Real
 from tqdm import tqdm
 from sklearn.preprocessing import MinMaxScaler
-# from sklearn.model_selection import KFold, RepeatedKFold
+from sklearn.model_selection import KFold, RepeatedKFold
 # from skopt.plots import plot_objective, plot_histogram, plot_evaluations
 # from skopt import dump, load
 import matplotlib as mpl
@@ -85,39 +85,39 @@ y_test = y_test.astype(np.float32)
 
 # ------------------- Random Forest ----------------------------------------- #
 
-# # Define progress monitoring object
-# class tqdm_skopt(object):
-#     def __init__(self, **kwargs):
-#         self._bar = tqdm(**kwargs)
+# Define progress monitoring object
+class tqdm_skopt(object):
+    def __init__(self, **kwargs):
+        self._bar = tqdm(**kwargs)
 
-#     def __call__(self, res):
-#         self._bar.update()
-
-
-# # Define estimator
-# rf = RandomForestRegressor(n_jobs=-1, random_state=SEED)
-
-# # Define search space
-# n_features = x_train.shape[-1]
-# space = dict()
-# space['n_estimators'] = Integer(100, 1500)
-# space['criterion'] = Categorical(['mse', 'mae'])
-# space['max_features'] = Integer(1, n_features)
-# # space['max_depth'] = Integer(1, 20)
-# # space['min_samples_split'] = Integer(2, 100)
-# # space['min_samples_leaf'] = Integer(1, 100)
+    def __call__(self, res):
+        self._bar.update()
 
 
-# # Define optimizer
-# n_calls = 50
-# # cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
-# opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
-#                     n_jobs=-1,
-#                     cv=5, random_state=SEED)
+# Define estimator
+rf = RandomForestRegressor(n_jobs=-1, random_state=SEED)
 
-# # Fit optimizer
-# opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
-#                                                desc="Bayesian Search")])
+# Define search space
+n_features = x_train.shape[-1]
+space = dict()
+space['n_estimators'] = Integer(100, 1500)
+space['criterion'] = Categorical(['mse', 'mae'])
+space['max_features'] = Integer(1, 20)
+# space['max_depth'] = Integer(1, 20)
+# space['min_samples_split'] = Integer(2, 100)
+# space['min_samples_leaf'] = Integer(1, 100)
+
+
+# Define optimizer
+n_calls = 50
+cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
+opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
+                    scoring='neg_mean_squared_error', n_jobs=-1, iid=False,
+                    cv=cv, random_state=SEED)
+
+# Fit optimizer
+opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
+                                                desc="Bayesian Search")])
 
 # Save optimizer
 # dump(opt, 'optimizers/RF_opt1.pkl')
@@ -131,37 +131,37 @@ y_test = y_test.astype(np.float32)
 
 # ------------------- This worked ------------------------------------------- #
 
-# Define progress monitoring object
-class tqdm_skopt(object):
-    def __init__(self, **kwargs):
-        self._bar = tqdm(**kwargs)
+# # Define progress monitoring object
+# class tqdm_skopt(object):
+#     def __init__(self, **kwargs):
+#         self._bar = tqdm(**kwargs)
 
-    def __call__(self, res):
-        self._bar.update()
-
-
-# Define estimator
-rf = RandomForestRegressor(random_state=SEED, n_jobs=-1)
-
-# Define search space
-n_features = x_train.shape[-1]
-space = {'n_estimators': Integer(100, 1000),
-         'criterion': Categorical(['mse', 'mae']),
-         'max_features': Integer(1, n_features)}
-# ,
-# 'max_depth': Integer(1, 15),
-# 'min_samples_split': Integer(2, 100),
-# 'min_samples_leaf': Integer(1, 100)
-#  }
+#     def __call__(self, res):
+#         self._bar.update()
 
 
-# Define optimizer
-n_calls = 50
-opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
-                    n_jobs=-1, cv=5, random_state=SEED)
+# # Define estimator
+# rf = RandomForestRegressor(random_state=SEED, n_jobs=-1)
 
-opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
-                                    desc="Gaussian Process")])
+# # Define search space
+# n_features = x_train.shape[-1]
+# space = {'n_estimators': Integer(10, 20),
+#          'criterion': Categorical(['mse', 'mae']),
+#          'max_features': Integer(1, 4)}
+# # ,
+# # 'max_depth': Integer(1, 15),
+# # 'min_samples_split': Integer(2, 100),
+# # 'min_samples_leaf': Integer(1, 100)
+# #  }
+
+
+# # Define optimizer
+# n_calls = 50
+# opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
+#                     n_jobs=-1, cv=5, random_state=SEED)
+
+# opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
+#                                     desc="Gaussian Process")])
 
 
 
