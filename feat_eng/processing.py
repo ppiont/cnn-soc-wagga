@@ -17,6 +17,7 @@ from feat_eng.feature_extract import feature_extract
 data_dir = pathlib.Path('data/')
 
 # ------------------- Targets ----------------------------------------------- #
+
 # Extract targets
 # targets = target_extract('data/LUCAS_TOPSOIL_v1.csv', 'Germany', 'GPS_LAT',
 #                       'GPS_LONG')
@@ -26,6 +27,7 @@ data_dir = pathlib.Path('data/')
 #                 driver='GeoJSON')
 
 # ------------------- Features ---------------------------------------------- #
+
 # Get target and feature paths
 # t_path = data_dir.joinpath('germany_targets.geojson'
 # r_path = data_dir.joinpath('germany_covars/'
@@ -37,6 +39,7 @@ data_dir = pathlib.Path('data/')
 # np.save("raw_features.npy", feats)
 
 # ------------------- Split numerical and categorical ------------------------#
+
 # Read covariate table
 covs_meta = pd.read_csv(data_dir.joinpath('COVS250m_sel.csv'))
 

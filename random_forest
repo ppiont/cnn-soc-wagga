@@ -8,7 +8,7 @@ Created on Tue Dec  1 11:32:05 2020.
 import pathlib
 
 import numpy as np
-# import pandas as pd
+import pandas as pd
 import geopandas as gpd
 from sklearn.model_selection import train_test_split
 from skopt.learning import RandomForestRegressor
@@ -16,14 +16,16 @@ from skopt import BayesSearchCV
 from skopt.space import Integer, Categorical  # , Real
 from tqdm import tqdm
 from sklearn.preprocessing import MinMaxScaler
-# from sklearn.model_selection import KFold, RepeatedKFold
-# from skopt.plots import plot_objective, plot_histogram, plot_evaluations
-# from skopt import dump, load
+from sklearn.model_selection import KFold, RepeatedKFold
+from skopt.plots import plot_objective, plot_histogram, plot_evaluations
+from skopt import dump, load
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from feat_eng.funcs import get_corr_feats
 # from custom_metrics.metrics import mean_error, lin_ccc  # custom
 # from feat_eng.funcs import min_max  # custom
+
 
 # ------------------- Options ----------------------------------------------- #
 
@@ -36,6 +38,9 @@ mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif",
                      "figure.figsize": (5, 5), "figure.dpi": 450,
                      "figure.autolayout": True, "savefig.format": "svg",
                      "savefig.transparent": True, "image.cmap": "cool"})
+
+# # Reset params if needed
+mpl.rcParams.update(mpl.rcParamsDefault)
 
 # ------------------- Organization ------------------------------------------ #
 
@@ -59,12 +64,17 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
                                                     test_size=0.1,
                                                     random_state=SEED)
 
+# Identify features with 0 variance
+zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
 # Remove features with 0 variance
-# First get their index
-rm_idx = np.where(np.var(x_train, axis=0) == 0)[0]
-# Then delete features with 0 variance
-x_train = np.delete(x_train, rm_idx, -1)
-x_test = np.delete(x_test, rm_idx, -1)
+x_train = np.delete(x_train, zero_var_idx, -1)
+x_test = np.delete(x_test, zero_var_idx, -1)
+
+# Identify features with high correlation
+high_corr_idx = get_corr_feats(x_train, min_corr=0.8)
+# Remove features with high correlation
+x_train = np.delete(x_train, high_corr_idx, -1)
+x_test = np.delete(x_test, high_corr_idx, -1)
 
 # Normalize data
 scaler = MinMaxScaler()
@@ -85,51 +95,6 @@ y_test = y_test.astype(np.float32)
 
 # ------------------- Random Forest ----------------------------------------- #
 
-# # Define progress monitoring object
-# class tqdm_skopt(object):
-#     def __init__(self, **kwargs):
-#         self._bar = tqdm(**kwargs)
-
-#     def __call__(self, res):
-#         self._bar.update()
-
-
-# # Define estimator
-# rf = RandomForestRegressor(n_jobs=-1, random_state=SEED)
-
-# # Define search space
-# n_features = x_train.shape[-1]
-# space = dict()
-# space['n_estimators'] = Integer(100, 1500)
-# space['criterion'] = Categorical(['mse', 'mae'])
-# space['max_features'] = Integer(1, n_features)
-# # space['max_depth'] = Integer(1, 20)
-# # space['min_samples_split'] = Integer(2, 100)
-# # space['min_samples_leaf'] = Integer(1, 100)
-
-
-# # Define optimizer
-# n_calls = 50
-# # cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
-# opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
-#                     n_jobs=-1,
-#                     cv=5, random_state=SEED)
-
-# # Fit optimizer
-# opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
-#                                                desc="Bayesian Search")])
-
-# Save optimizer
-# dump(opt, 'optimizers/RF_opt1.pkl')
-
-# plot_objective(opt.optimizer_results_[0], n_minimum_search=int(1e8))
-
-# _ = plot_evaluations(opt.optimizer_results_[0])
-# plt.show()
-# _.savefig('test.svg', format='svg')
-
-
-# ------------------- This worked ------------------------------------------- #
 
 # Define progress monitoring object
 class tqdm_skopt(object):
@@ -141,90 +106,35 @@ class tqdm_skopt(object):
 
 
 # Define estimator
-rf = RandomForestRegressor(random_state=SEED, n_jobs=-1)
+rf = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=SEED)
 
 # Define search space
 n_features = x_train.shape[-1]
-space = {'n_estimators': Integer(100, 1000),
-         'criterion': Categorical(['mse', 'mae']),
-         'max_features': Integer(1, n_features)}
-# ,
-# 'max_depth': Integer(1, 15),
-# 'min_samples_split': Integer(2, 100),
-# 'min_samples_leaf': Integer(1, 100)
-#  }
+space = dict()
+# space['n_estimators'] = Integer(1000, 2500)
+# space['criterion'] = Categorical(['mse', 'mae'])
+space['max_features'] = Integer(1, n_features)
+space['max_depth'] = Integer(10, 200)
+# space['min_samples_split'] = Integer(2, 100)
+# space['min_samples_leaf'] = Integer(1, 100)
 
 
 # Define optimizer
 n_calls = 50
+cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
 opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
-                    n_jobs=-1, cv=5, random_state=SEED)
+                    scoring='neg_mean_squared_error', n_jobs=-1, iid=False,
+                    cv=cv, random_state=SEED)
 
+# Fit optimizer
 opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
-                                    desc="Gaussian Process")])
+                                               desc="Bayesian Search")])
 
-
-
-
-
-
-
-
-
-# Define pipeline
-# pipe = make_pipeline(preprocessing.MinMaxScaler(), opt)
-
-
-
-
-# Fit
-# pipe.fit(x_train, y_train)
-
-
-
-
-
-
-
-
-
-
-# mse = make_scorer(mean_squared_error, greater_is_better=False)
-# me = make_scorer(mean_error, greater_is_better=False)
-# mec = make_scorer(explained_variance_score)
-# ccc = make_scorer(lin_ccc)
-# metrics = {'MSE': mse, 'ME': me, 'MEC': mec, 'CCC': ccc}
-
-# scores = cross_validate(rf, x_train, y_train,
-#                         scoring=metrics,
-#                         cv=KFold(n_splits=5, shuffle=True, random_state=SEED))
-
-
-# test_score = scores['test_score'].mean()
-
-
-
-
-
-
-
-
-# # Min-max normalize  the train data, also removing features with 0 variance
-# x_train, no_variance_idx = min_max(x_train, axis=0)
-
-# # Min-max normalize the test data and remove features that were removed from
-# # the train data
-# x_test = min_max(x_test, axis=0, rm_no_variance=False)
-# x_test = np.delete(x_test, no_variance_idx, -1)
-
-
-# Instantiate model with 1000 decision trees
-# rf = RandomForestRegressor(n_estimators=1000, random_state=SEED, n_jobs=-1)
-# Train mode with cross-validation
-# scores = cross_val_score(rf, x_train, y_train, cv=5, scoring='mse')
-
-
-
-
-
-
+# # Save optimizer
+# dump(opt, 'optimizers/RF_opt5.pkl')
+# # Save results
+# opt_results = pd.DataFrame(opt.cv_results_)
+# opt_results.to_csv('optimizers/BSCV_5.csv')
+# # Plot results
+# plot_objective(opt.optimizer_results_[0])
+# plot_evaluations(opt.optimizer_results_[0])

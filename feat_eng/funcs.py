@@ -60,3 +60,16 @@ def crop_center(arr, crop_x, crop_y):
     start_y = y//2 - crop_y//2
 
     return arr[start_y:start_y+crop_y, start_x:start_x+crop_x, :]
+
+
+def get_corr_feats(X, min_corr=0.8):
+    """Get indices of correlated features of an array."""
+    correlated_features = set()
+    correlation_matrix = np.corrcoef(X, rowvar=False)
+
+    for i in range(correlation_matrix.shape[-1]):
+        for j in range(i):
+            if abs(correlation_matrix[i, j]) > min_corr:
+                correlated_features.add(i)
+
+    return np.array(list(correlated_features))
