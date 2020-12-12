@@ -4,6 +4,7 @@ from skopt.utils import use_named_args
 from skopt.space import Real, Categorical, Integer
 from tensorflow.keras.optimizers import Adam
 import tensorflow.keras.backend as K
+import tensorflow as tf
 from skopt import callbacks
 from skopt.callbacks import CheckpointSaver
 from skopt import load
@@ -12,6 +13,7 @@ from skopt import load
 # ------------------- Define model class -------------------------------------#
 
 class NN_model(tf.keras.Model):
+    """Placeholder Docstring."""
 
     # All hyperparams are inputs in __init__ function after 'self'
     def __init__(self, regu=1e-6, num_neurons=16):
@@ -19,6 +21,19 @@ class NN_model(tf.keras.Model):
         pass
 
     def call(self, x):
+        """Call x.
+
+        Parameters
+        ----------
+        x : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        x : TYPE
+            DESCRIPTION.
+
+        """
         # Forward propagation
         return x
 
@@ -54,12 +69,29 @@ default_parameters = [1e-3, 16,  1e-6]
 
 @use_named_args(dimensions=dimensions)
 def fitness(learning_rate, filter_exponent, regu):
+    """
+
+    Parameters
+    ----------
+    learning_rate : TYPE
+        DESCRIPTION.
+    filter_exponent : TYPE
+        DESCRIPTION.
+    regu : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    mse : TYPE
+        DESCRIPTION.
+
+    """
 
     # Define loss function
     MSE = tf.keras.losses.MeanSquaredError()
 
     # Define NN
-    model = NN_model(regu=regu,num_neurons=num_neurons)
+    model = NN_model(regu=regu, num_neurons=num_neurons)
 
     # Define optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)

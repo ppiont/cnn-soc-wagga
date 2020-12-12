@@ -73,3 +73,14 @@ def get_corr_feats(X, min_corr=0.8):
                 correlated_features.add(i)
 
     return np.array(list(correlated_features))
+
+
+def add_min(a):
+    """Add abs(minimum) along whole 1-D array."""
+    return a + abs(a.min()) if a.min() < 0 else a
+
+
+def safe_log(x):
+    """Apply log transform on all values except 0s."""
+    x = np.ma.log(x)
+    return x.filled(0)
