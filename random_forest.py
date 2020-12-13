@@ -17,17 +17,10 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.feature_selection import RFECV
 from skopt.learning import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from skopt import BayesSearchCV, gp_minimize, dump, load
+from skopt import gp_minimize, dump, load
 from skopt.space import Integer  # , Real
-from skopt.plots import plot_objective, plot_histogram, plot_evaluations
+from skopt.plots import plot_objective, plot_evaluations, plot_convergence
 from tqdm import tqdm
-<<<<<<< HEAD
-=======
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import KFold, RepeatedKFold
-# from skopt.plots import plot_objective, plot_histogram, plot_evaluations
-# from skopt import dump, load
->>>>>>> 3d57d15e105baeb44ed58adb9bd078a9adb128d4
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -39,6 +32,7 @@ from feat_eng.funcs import get_corr_feats, add_min, safe_log
 # ------------------- Settings ---------------------------------------------- #
 
 
+# Set matploblib style
 plt.style.use('seaborn-colorblind')
 mpl.rcParams['figure.dpi'] = 450
 mpl.rcParams['savefig.transparent'] = True
@@ -98,21 +92,11 @@ scaler_x.fit(x_train)
 x_train = scaler_x.transform(x_train)
 x_test = scaler_x.transform(x_test)
 
-
 # Normalize y
 scaler_y = MinMaxScaler()
 scaler_y.fit(y_train.reshape(-1, 1))
 y_train = scaler_y.fit_transform(y_train.reshape(-1, 1)).ravel()
 y_test = scaler_y.transform(y_test.reshape(-1, 1)).ravel()
-
-
-plt.hist(y_train, bins=100)
-plt.ylabel('Count')
-plt.xlabel('SOC (g/kg)')
-plt.axvline(y_train.mean(), color='k', linestyle='dashed', linewidth=1)
-plt.savefig('y_train_cleaned_hist.svg')
-plt.show()
-
 
 # Identify features with 0 variance
 zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
@@ -133,43 +117,28 @@ x_test = x_test.astype(np.float32)
 y_test = y_test.astype(np.float32)
 
 
-<<<<<<< HEAD
 # ------------------- Feature selection ------------------------------------- #
 
-=======
+
 # Define progress monitoring object
 class tqdm_skopt(object):
+    """Progress bar object for functions with callbacks."""
+
     def __init__(self, **kwargs):
         self._bar = tqdm(**kwargs)
 
     def __call__(self, res):
+        """Update bar with intermediate results."""
         self._bar.update()
->>>>>>> 3d57d15e105baeb44ed58adb9bd078a9adb128d4
+
 
 # # Create the RFE object and compute a cross-validated score.
 # rf_fs = RandomForestRegressor(n_estimators=500, max_features=15,
 #                               n_jobs=-1, random_state=SEED)
 # cv_fs = KFold(n_splits=5, shuffle=True, random_state=SEED)
-
-<<<<<<< HEAD
 # rfecv = RFECV(estimator=rf_fs, step=1, cv=cv_fs, min_features_to_select=30,
 #               scoring='neg_mean_squared_error', verbose=1)
-
 # rfecv.fit(x_train, y_train)
-=======
-# Define estimator
-rf = RandomForestRegressor(n_jobs=-1, random_state=SEED)
-
-# Define search space
-n_features = x_train.shape[-1]
-space = dict()
-space['n_estimators'] = Integer(100, 1500)
-space['criterion'] = Categorical(['mse', 'mae'])
-space['max_features'] = Integer(1, 20)
-# space['max_depth'] = Integer(1, 20)
-# space['min_samples_split'] = Integer(2, 100)
-# space['min_samples_leaf'] = Integer(1, 100)
->>>>>>> 3d57d15e105baeb44ed58adb9bd078a9adb128d4
 
 # length = x_train.shape[-1]
 # plt.figure()
@@ -179,7 +148,6 @@ space['max_features'] = Integer(1, 20)
 # plt.savefig('rfe2.svg', format='svg')
 # plt.show()
 
-<<<<<<< HEAD
 # rfe_mask = rfecv.support_
 # rfe_rank = rfecv.ranking_
 # rfe_scores = rfecv.grid_scores_
@@ -187,18 +155,6 @@ space['max_features'] = Integer(1, 20)
 # np.save('rfe_scores2.npy', rfe_scores)
 # np.save('rfe_rank2.npy', rfe_rank)
 # np.save('rfe_mask2.npy', rfe_mask)
-=======
-# Define optimizer
-n_calls = 50
-cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
-opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
-                    scoring='neg_mean_squared_error', n_jobs=-1, iid=False,
-                    cv=cv, random_state=SEED)
-
-# Fit optimizer
-opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
-                                                desc="Bayesian Search")])
->>>>>>> 3d57d15e105baeb44ed58adb9bd078a9adb128d4
 
 rfe_mask = np.load('rfe_mask2.npy')
 
@@ -206,68 +162,14 @@ x_train_fs = x_train[:, rfe_mask]
 x_test_fs = x_test[:, rfe_mask]
 
 
-# ------------------- Random Forest ----------------------------------------- #
+# ------------------- RF Hyperparameter Optimization------------------------- #
 
 
-# # Define progress monitoring object
-# class tqdm_skopt(object):
-#     def __init__(self, **kwargs):
-#         self._bar = tqdm(**kwargs)
-
-#     def __call__(self, res):
-#         self._bar.update()
-
-
-<<<<<<< HEAD
 # Define estimator
-rf = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=SEED)
-=======
-# # Define estimator
-# rf = RandomForestRegressor(random_state=SEED, n_jobs=-1)
+estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
+                                  random_state=SEED)
 
-# # Define search space
-# n_features = x_train.shape[-1]
-# space = {'n_estimators': Integer(10, 20),
-#          'criterion': Categorical(['mse', 'mae']),
-#          'max_features': Integer(1, 4)}
-# # ,
-# # 'max_depth': Integer(1, 15),
-# # 'min_samples_split': Integer(2, 100),
-# # 'min_samples_leaf': Integer(1, 100)
-# #  }
-
-
-# # Define optimizer
-# n_calls = 50
-# opt = BayesSearchCV(estimator=rf, search_spaces=space, n_iter=n_calls,
-#                     n_jobs=-1, cv=5, random_state=SEED)
-
-# opt.fit(x_train, y_train, callback=[tqdm_skopt(total=n_calls,
-#                                     desc="Gaussian Process")])
-
-
-
-
-
-
-
-
-
-# Define pipeline
-# pipe = make_pipeline(preprocessing.MinMaxScaler(), opt)
-
-
-
-
-# Fit
-# pipe.fit(x_train, y_train)
-
-
-
-
->>>>>>> 3d57d15e105baeb44ed58adb9bd078a9adb128d4
-
-# Define CV
+# Define cross-validation
 cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
 
 # Define search space
@@ -279,25 +181,21 @@ space.append(Integer(10, 200, name='max_depth'))
 space.append(Integer(2, 100, name='min_samples_split'))
 space.append(Integer(10, 200, name='min_samples_leaf'))
 
-#space = dict()
-# space['n_estimators'] = Integer(1000, 2500)
-# space['criterion'] = Categorical(['mse', 'mae'])
-# space['max_features'] = Integer(1, n_features)
-# space['max_depth'] = Integer(10, 200)
-# space['min_samples_split'] = Integer(2, 100)
-# space['min_samples_leaf'] = Integer(1, 100)
-
 
 @use_named_args(space)
 def objective(**params):
-    rf.set_params(**params)
+    """Return objective function score for estimator."""
+    # Set hyperparameters from space decorator
+    estimator.set_params(**params)
 
-    return -np.mean(cross_val_score(rf, x_train, y_train, cv=cv, n_jobs=-1,
+    return -np.mean(cross_val_score(estimator, x_train_fs, y_train, cv=cv,
+                                    n_jobs=-1,
                                     scoring="neg_mean_squared_error"))
 
 
 n_calls = 100
-res_gp = gp_minimize(objective, space, n_calls=n_calls, random_state=SEED,
+res_gp = gp_minimize(objective, space, n_calls=n_calls,
+                     random_state=SEED,
                      callback=[tqdm_skopt(total=n_calls,
                                           desc='Gaussian Process')])
 
@@ -316,16 +214,26 @@ print("""Best parameters:
 # - min_samples_leaf=10
 
 
-from skopt.plots import plot_convergence
-
+# Plot gp_minimize output
 plot_convergence(res_gp)
 plt.savefig("rf_convergence_1.svg")
-
 plot_objective(res_gp)
 plt.savefig("GP_run_1_obj.svg")
+plot_evaluations(res_gp)
+plt.savefig("GP_run_1_eval.svg")
 
 
 dump(res_gp, "optimizers/gp_1.pkl")
+
+
+
+
+
+
+
+
+
+
 
 
 # # Define BayesSearchCV optimizer
@@ -355,14 +263,11 @@ dump(res_gp, "optimizers/gp_1.pkl")
 # plt.savefig('BSCV_run_8_eval.svg')
 # plt.show()
 
-est.score(x_train_fs, y_train)
 
-y_train.shape
-
-y_pred = est.predict(x_train_fs)
-predictions = pd.DataFrame()
-
-predictions['y_true'] = np.exp(scaler_y.inverse_transform(y_train.reshape(-1, 1)))
-predictions['y_pred'] = np.exp(scaler_y.inverse_transform(y_pred.reshape(-1, 1)))
-
-rmse = mean_squared_error(predictions.y_true, predictions.y_pred, squared=False)
+# # Plot histogram
+# plt.hist(y_train, bins=100)
+# plt.ylabel('Count')
+# plt.xlabel('SOC (g/kg)')
+# plt.axvline(y_train.mean(), color='k', linestyle='dashed', linewidth=1)
+# plt.savefig('y_train_cleaned_hist.svg')
+# plt.show()
