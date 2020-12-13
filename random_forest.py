@@ -208,22 +208,22 @@ print("""Best parameters:
                             res_gp.x[2], res_gp.x[3]))
 
 # Best parameters:
-# - max_features=68
-# - max_depth=200
-# - min_samples_split=2
-# - min_samples_leaf=10
+# - max_features=68 and 80
+# - max_depth=200 and 200
+# - min_samples_split=2 and 2
+# - min_samples_leaf=10 and 10
 
 
 # Plot gp_minimize output
 plot_convergence(res_gp)
-plt.savefig("rf_convergence_1.svg")
+plt.savefig("GP_convergence_2.svg")
 plot_objective(res_gp)
-plt.savefig("GP_run_1_obj.svg")
+plt.savefig("GP_objective_2.svg")
 plot_evaluations(res_gp)
-plt.savefig("GP_run_1_eval.svg")
+plt.savefig("GP_revaluations_2.svg")
 
 
-dump(res_gp, "optimizers/gp_1.pkl")
+dump(res_gp, "optimizers/gp_2.pkl")
 
 
 
