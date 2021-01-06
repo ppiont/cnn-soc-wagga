@@ -10,27 +10,28 @@ import pathlib
 
 # Imports
 import numpy as np
-import numpy.ma as ma
-import pandas as pd
+# import numpy.ma as ma
+# import pandas as pd
 import geopandas as gpd
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
-from skopt.utils import use_named_args
+from sklearn.model_selection import train_test_split  # ,KFold, cross_val_score
+# from skopt.utils import use_named_args
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.feature_selection import RFECV
+# from sklearn.feature_selection import RFECV
+from sklearn.linear_model import LinearRegression
+# from sklearn.metrics import r2_score
 from skopt.learning import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from skopt import gp_minimize, dump, load
-from skopt.space import Integer  # , Real
-from skopt.plots import plot_objective, plot_evaluations, plot_convergence
-from tqdm import tqdm
+# from skopt import gp_minimize, dump, load
+# from skopt.space import Integer  # , Real
+# from skopt.plots import plot_objective, plot_evaluations, plot_convergence
+# from tqdm import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 # Custom imports
-from feat_eng.funcs import get_corr_feats, add_min, safe_log
+from feat_eng.funcs import add_min, safe_log  # , get_corr_feats, min_max
 from custom_metrics.metrics import (mean_error, lin_ccc,
                                     model_efficiency_coefficient)
-# from feat_eng.funcs import min_max  # custom
 
 
 # ------------------- Settings ---------------------------------------------- #
@@ -38,6 +39,7 @@ from custom_metrics.metrics import (mean_error, lin_ccc,
 
 # Set matploblib style
 plt.style.use('seaborn-colorblind')
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 mpl.rcParams['figure.dpi'] = 450
 mpl.rcParams['savefig.transparent'] = True
 mpl.rcParams['savefig.format'] = 'svg'
@@ -69,7 +71,7 @@ features = np.load(data_dir.joinpath('numerical_feats.npy'))
 features = features[:, features.shape[1]//2, features.shape[2]//2, :]
 # Split into train and test data
 x_train, x_test, y_train, y_test = train_test_split(features, targets,
-                                                    test_size=0.1,
+                                                    test_size=0.2,
                                                     random_state=SEED)
 
 # # Remove outliers
@@ -124,16 +126,16 @@ y_test = y_test.astype(np.float32)
 # ------------------- Feature selection ------------------------------------- #
 
 
-# Define progress monitoring object
-class tqdm_skopt(object):
-    """Progress bar object for functions with callbacks."""
+# # Define progress monitoring object
+# class tqdm_skopt(object):
+#     """Progress bar object for functions with callbacks."""
 
-    def __init__(self, **kwargs):
-        self._bar = tqdm(**kwargs)
+#     def __init__(self, **kwargs):
+#         self._bar = tqdm(**kwargs)
 
-    def __call__(self, res):
-        """Update bar with intermediate results."""
-        self._bar.update()
+#     def __call__(self, res):
+#         """Update bar with intermediate results."""
+#         self._bar.update()
 
 
 # # Create the RFE object and compute a cross-validated score.
@@ -169,98 +171,101 @@ class tqdm_skopt(object):
 # ------------------- RF Hyperparameter Optimization ------------------------ #
 
 
-# Define estimator
-estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
-                                  random_state=SEED)
+# # Define estimator
+# estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
+#                                   random_state=SEED)
 
-# Define cross-validation
-cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
+# # Define cross-validation
+# cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
 
-# Define search space
-n_features = x_train.shape[-1]
+# # Define search space
+# n_features = x_train.shape[-1]
 
-space = []
-space.append(Integer(1, n_features, name='max_features'))
-space.append(Integer(10, 200, name='max_depth'))
-space.append(Integer(2, 100, name='min_samples_split'))
-space.append(Integer(1, 200, name='min_samples_leaf'))
-
-
-@use_named_args(space)
-def objective(**params):
-    """Return objective function score for estimator."""
-    # Set hyperparameters from space decorator
-    estimator.set_params(**params)
-
-    return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv,
-                                    n_jobs=-1,
-                                    scoring="neg_mean_squared_error"))
+# space = []
+# space.append(Integer(1, n_features, name='max_features'))
+# space.append(Integer(10, 200, name='max_depth'))
+# space.append(Integer(2, 100, name='min_samples_split'))
+# space.append(Integer(1, 200, name='min_samples_leaf'))
 
 
-n_calls = 200
-res_gp = gp_minimize(objective, space, n_calls=n_calls,
-                     random_state=SEED,
-                     callback=[tqdm_skopt(total=n_calls,
-                                          desc='Gaussian Process')])
+# @use_named_args(space)
+# def objective(**params):
+#     """Return objective function score for estimator."""
+#     # Set hyperparameters from space decorator
+#     estimator.set_params(**params)
+
+#     return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv,
+#                                     n_jobs=-1,
+#                                     scoring="neg_mean_squared_error"))
 
 
-print(f'''Best parameters:
-- max_features={res_gp.x[0]}
-- max_depth={res_gp.x[1]}
-- min_samples_split={res_gp.x[2]}
-- min_samples_leaf={res_gp.x[3]}''')
-
-# Best parameters:
-# - max_features=68 and 80 and 167 (no recursive feat_eng)
-# - max_depth=200 and 200 and 200 (no recursive feat_eng)
-# - min_samples_split=2 and 2 and 2 (no recursive feat_eng)
-# - min_samples_leaf=10 and 10 and 10 (no recursive feat_eng)
+# n_calls = 200
+# res_gp = gp_minimize(objective, space, n_calls=n_calls,
+#                      random_state=SEED,
+#                      callback=[tqdm_skopt(total=n_calls,
+#                                           desc='Gaussian Process')])
 
 
-# Plot gp_minimize output
-plot_convergence(res_gp)
-plt.savefig("GP_convergence_3.svg")
-plot_objective(res_gp)
-plt.savefig("GP_objective_3.svg")
-plot_evaluations(res_gp)
-plt.savefig("GP_revaluations_3.svg")
+# print(f'''Best parameters:
+# - max_features={res_gp.x[0]}
+# - max_depth={res_gp.x[1]}
+# - min_samples_split={res_gp.x[2]}
+# - min_samples_leaf={res_gp.x[3]}''')
 
-# Save optimizer
-dump(res_gp, "optimizers/gp_3.pkl")
+# # Plot gp_minimize output
+# plot_convergence(res_gp)
+# plt.savefig("GP_convergence_3.svg")
+# plot_objective(res_gp)
+# plt.savefig("GP_objective_3.svg")
+# plot_evaluations(res_gp)
+# plt.savefig("GP_revaluations_3.svg")
+
+# # Save optimizer
+# dump(res_gp, "optimizers/gp_3.pkl")
+
+
+# ------------------- Training ---------------------------------------------- #
+
+
+rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1,
+                           random_state=SEED, criterion='mse', verbose=2)
+rf.fit(x_train, y_train)
 
 
 # ------------------- Testing ----------------------------------------------- #
 
-rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1,
-                                  random_state=SEED)
-rf.fit(x_train, y_train)
-
+# Predict on test set and reshape pred and true
 y_pred = np.exp(scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1)))
 y_true = np.exp(scaler_y.inverse_transform(y_test.reshape(-1, 1)))
 
-
+# Calculate metrics
 r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
-                                          .reshape(1, -1)))[0][0]
-
-
+                                       .reshape(1, -1)))[0][0]
 mse = mean_squared_error(y_true, y_pred)
 me = mean_error(y_true, y_pred)
 mec = model_efficiency_coefficient(y_true, y_pred)
 ccc = lin_ccc(y_true, y_pred)
 
 
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
+# ------------------- Plotting ---------------------------------------------- #
 
-fig, ax = plt.subplots(figsize=(10, 10))
-ax.set_title(f'MSE: {mse:.3f}   ME: {me:.3f}   MEC: {mec:.3f}   CCC: {ccc:.3f}')
-ax.scatter(y_true, y_pred)
+
+fig, ax = plt.subplots(figsize=(8, 8))
+ax.set_title(f'MSE: {mse:.3f}   ME: {me:.3f}   MEC: {mec:.3f}\
+   CCC: {ccc:.3f}')
+ax.scatter(y_true, y_pred, c=colors[0])
 ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        'k--', lw=4)
+        '--', lw=2, label='1:1 line', c=colors[1])
 ax.set_xlabel('Actual')
 ax.set_ylabel('Predicted')
 # Regression line
 y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
-ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1))
-plt.savefig('RF_summary.svg')
+ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
+        c=colors[2], lw=2, label='Trend')
+ax.legend(loc='upper left')
+ax.text(-11, 370,
+        f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
+        va='top', ha='left', linespacing=1.5, snap=True,
+        bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
+plt.savefig('RF_mse_summary.svg')
 plt.show()
