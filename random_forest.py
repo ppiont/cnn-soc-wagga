@@ -227,7 +227,7 @@ y_test = y_test.astype(np.float32)
 # ------------------- Training ---------------------------------------------- #
 
 
-rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1,
+rf = RandomForestRegressor(n_estimators=100, n_jobs=-1,
                            random_state=SEED, criterion='mse', verbose=2)
 rf.fit(x_train, y_train)
 
@@ -251,8 +251,6 @@ ccc = lin_ccc(y_true, y_pred)
 
 
 fig, ax = plt.subplots(figsize=(8, 8))
-ax.set_title(f'MSE: {mse:.3f}   ME: {me:.3f}   MEC: {mec:.3f}\
-   CCC: {ccc:.3f}')
 ax.scatter(y_true, y_pred, c=colors[0])
 ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
         '--', lw=2, label='1:1 line', c=colors[1])
@@ -267,5 +265,7 @@ ax.text(-11, 370,
         f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
         va='top', ha='left', linespacing=1.5, snap=True,
         bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
-plt.savefig('RF_mse_summary.svg')
+plt.tight_layout()
+# plt.savefig('RF_x_trees.svg', bbox_inches='tight',
+#             pad_inches=0)
 plt.show()
