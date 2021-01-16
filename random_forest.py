@@ -1,10 +1,5 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Dec  1 11:32:05 2020.
 
-@author: peter
-"""
 # Standard library imports
 import pathlib
 
@@ -52,8 +47,8 @@ mpl.rcParams['savefig.format'] = 'svg'
 # ------------------- Organization ------------------------------------------ #
 
 
-data_dir = pathlib.Path('data/')
-optimizer_dir = pathlib.Path('optimizers/')
+DATA_DIR = pathlib.Path('data/')
+OPTIMIZER_DIR = pathlib.Path('optimizers/')
 SEED = 43
 
 
@@ -61,12 +56,12 @@ SEED = 43
 
 
 # Load target data
-target_data = gpd.read_file(data_dir.joinpath('germany_targets.geojson'),
+target_data = gpd.read_file(DATA_DIR.joinpath('germany_targets.geojson'),
                             driver='GeoJSON')
 # Get target array
 targets = target_data.OC.values
 # Load feature array
-features = np.load(data_dir.joinpath('numerical_feats.npy'))
+features = np.load(DATA_DIR.joinpath('numerical_feats.npy'))
 # Get the center pixel (along axes=(1, 2))
 features = features[:, features.shape[1]//2, features.shape[2]//2, :]
 # Split into train and test data
@@ -92,18 +87,6 @@ x_test = safe_log(x_test)
 y_train = safe_log(y_train)
 y_test = safe_log(y_test)
 
-# Normalize X
-scaler_x = MinMaxScaler()
-scaler_x.fit(x_train)
-x_train = scaler_x.transform(x_train)
-x_test = scaler_x.transform(x_test)
-
-# Normalize y
-scaler_y = MinMaxScaler()
-scaler_y.fit(y_train.reshape(-1, 1))
-y_train = scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
-y_test = scaler_y.transform(y_test.reshape(-1, 1)).flatten()
-
 # Identify features with 0 variance
 zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
 # Remove features with 0 variance
@@ -115,6 +98,18 @@ x_test = np.delete(x_test, zero_var_idx, -1)
 # # Remove features with high correlation
 # x_train = np.delete(x_train, high_corr_idx, -1)
 # x_test = np.delete(x_test, high_corr_idx, -1)
+
+# Normalize X
+scaler_x = MinMaxScaler()
+scaler_x.fit(x_train)
+x_train = scaler_x.transform(x_train)
+x_test = scaler_x.transform(x_test)
+
+# Normalize y
+scaler_y = MinMaxScaler()
+scaler_y.fit(y_train.reshape(-1, 1))
+y_train = scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
+y_test = scaler_y.transform(y_test.reshape(-1, 1)).flatten()
 
 # Convert data to float32
 x_train = x_train.astype(np.float32)

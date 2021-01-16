@@ -53,13 +53,13 @@ def min_max(array, axis=(0, 1, 2), rm_no_variance=True):
 
 def crop_center(arr, crop_x, crop_y):
     """Crop an array, maintaining center."""
-    if len(arr.shape) > 3 and np.shape[0] == 1:
+    if len(arr.shape) == 4 and arr.shape[0] == 1:
         arr = np.squeeze(arr)
-    y, x, c = arr.shape
+    y, x, _ = arr.shape
     start_x = x//2 - crop_x//2
     start_y = y//2 - crop_y//2
 
-    return arr[start_y:start_y+crop_y, start_x:start_x+crop_x, :]
+    return arr[start_y:start_y + crop_y, start_x:start_x + crop_x, :]
 
 
 def get_corr_feats(X, min_corr=0.8):
@@ -81,6 +81,6 @@ def add_min(a):
 
 
 def safe_log(x):
-    """Apply log transform on all values except 0s."""
+    """Apply log transform on all values except x <= 0s."""
     x = np.ma.log(x)
     return x.filled(0)
