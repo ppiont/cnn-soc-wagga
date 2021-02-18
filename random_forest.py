@@ -222,7 +222,7 @@ y_test = y_test.astype(np.float32)
 # ------------------- Training ---------------------------------------------- #
 
 
-rf = RandomForestRegressor(n_estimators=500, n_jobs=-1,
+rf = RandomForestRegressor(n_estimators=100, n_jobs=-1,
                            random_state=SEED, criterion='mse', verbose=2)
 rf.fit(x_train, y_train)
 
