@@ -55,43 +55,52 @@ SEED = 43
 # ------------------- Read and prep data ------------------------------------ #
 
 
-# Load target data
-target_data = gpd.read_file(DATA_DIR.joinpath('germany_targets.geojson'),
-                            driver='GeoJSON')
-# Get target array
-targets = target_data.OC.values
-# Load feature array
-features = np.load(DATA_DIR.joinpath('numerical_feats.npy'))
-# Get the center pixel (along axes=(1, 2))
-features = features[:, features.shape[1]//2, features.shape[2]//2, :]
-# Split into train and test data
-x_train, x_test, y_train, y_test = train_test_split(features, targets,
-                                                    test_size=0.2,
-                                                    random_state=SEED)
+# # Load target data
+# target_data = gpd.read_file(DATA_DIR.joinpath('germany_targets.geojson'),
+#                             driver='GeoJSON')
+# # Get target array
+# targets = target_data.OC.values
+# # Load feature array
+# features = np.load(DATA_DIR.joinpath('numerical_feats.npy'))
+# # Get the center pixel (along axes=(1, 2))
+# features = features[:, features.shape[1]//2, features.shape[2]//2, :]
+# # Split into train and test data
+# x_train, x_test, y_train, y_test = train_test_split(features, targets,
+#                                                     test_size=0.2,
+#                                                     random_state=SEED)
 
-# # Remove outliers
-# std = np.std(y_train)
-# mean = np.mean(y_train)
-# cut_off = 3 * std
-# mask = ma.masked_where(abs(y_train-mean) > cut_off, y_train)
-# x_train = x_train[~mask.mask]
-# y_train = y_train[~mask.mask]
+# # # Remove outliers
+# # std = np.std(y_train)
+# # mean = np.mean(y_train)
+# # cut_off = 3 * std
+# # mask = ma.masked_where(abs(y_train-mean) > cut_off, y_train)
+# # x_train = x_train[~mask.mask]
+# # y_train = y_train[~mask.mask]
 
-# Shift values to remove negatives
-x_train = np.apply_along_axis(add_min, 0, x_train)
-x_test = np.apply_along_axis(add_min, 0, x_test)
+# # Shift values to remove negatives
+# x_train = np.apply_along_axis(add_min, 0, x_train)
+# x_test = np.apply_along_axis(add_min, 0, x_test)
 
-# Log transform
-x_train = safe_log(x_train)
-x_test = safe_log(x_test)
-y_train = safe_log(y_train)
-y_test = safe_log(y_test)
+# # Log transform
+# x_train = safe_log(x_train)
+# x_test = safe_log(x_test)
+# y_train = safe_log(y_train)
+# y_test = safe_log(y_test)
 
-# Identify features with 0 variance
-zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
-# Remove features with 0 variance
-x_train = np.delete(x_train, zero_var_idx, -1)
-x_test = np.delete(x_test, zero_var_idx, -1)
+# # Identify features with 0 variance
+# zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
+# # Remove features with 0 variance
+# x_train = np.delete(x_train, zero_var_idx, -1)
+# x_test = np.delete(x_test, zero_var_idx, -1)
+
+# This data was prepped in data_prep.py, which does the same as the code above,
+# except it doesn't remove outliers
+train_data = np.load(DATA_DIR.joinpath('train.npy'))
+test_data = np.load(DATA_DIR.joinpath('test.npy'))
+x_train = train_data[:, 1:]
+y_train = train_data[:, 0]
+x_test = test_data[:, 1:]
+y_test = test_data[:, 0]
 
 # # Identify features with high correlation
 # high_corr_idx = get_corr_feats(x_train, min_corr=0.9)
@@ -222,7 +231,7 @@ y_test = y_test.astype(np.float32)
 # ------------------- Training ---------------------------------------------- #
 
 
-rf = RandomForestRegressor(n_estimators=100, n_jobs=-1,
+rf = RandomForestRegressor(n_estimators=500, n_jobs=-1,
                            random_state=SEED, criterion='mse', verbose=2)
 rf.fit(x_train, y_train)
 
