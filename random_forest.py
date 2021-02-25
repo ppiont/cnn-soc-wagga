@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+#%%
+
 # Standard library imports
 import pathlib
 
@@ -8,18 +10,18 @@ import numpy as np
 # import numpy.ma as ma
 # import pandas as pd
 import geopandas as gpd
-from sklearn.model_selection import train_test_split  # ,KFold, cross_val_score
-# from skopt.utils import use_named_args
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from skopt.utils import use_named_args
 from sklearn.preprocessing import MinMaxScaler
 # from sklearn.feature_selection import RFECV
 from sklearn.linear_model import LinearRegression
-# from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score
 from skopt.learning import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-# from skopt import gp_minimize, dump, load
-# from skopt.space import Integer  # , Real
-# from skopt.plots import plot_objective, plot_evaluations, plot_convergence
-# from tqdm import tqdm
+from skopt import gp_minimize  #, dump, load
+from skopt.space import Integer  # , Real
+from skopt.plots import plot_objective, plot_evaluations, plot_convergence
+from tqdm import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -95,8 +97,8 @@ SEED = 43
 
 # This data was prepped in data_prep.py, which does the same as the code above,
 # except it doesn't remove outliers
-train_data = np.load(DATA_DIR.joinpath('train.npy'))
-test_data = np.load(DATA_DIR.joinpath('test.npy'))
+train_data = np.load(DATA_DIR.joinpath('train_no_outlier.npy'))
+test_data = np.load(DATA_DIR.joinpath('test_no_outlier.npy'))
 x_train = train_data[:, 1:]
 y_train = train_data[:, 0]
 x_test = test_data[:, 1:]
@@ -130,16 +132,16 @@ y_test = y_test.astype(np.float32)
 # ------------------- Feature selection ------------------------------------- #
 
 
-# # Define progress monitoring object
-# class tqdm_skopt(object):
-#     """Progress bar object for functions with callbacks."""
+# Define progress monitoring object
+class tqdm_skopt(object):
+    """Progress bar object for functions with callbacks."""
 
-#     def __init__(self, **kwargs):
-#         self._bar = tqdm(**kwargs)
+    def __init__(self, **kwargs):
+        self._bar = tqdm(**kwargs)
 
-#     def __call__(self, res):
-#         """Update bar with intermediate results."""
-#         self._bar.update()
+    def __call__(self, res):
+        """Update bar with intermediate results."""
+        self._bar.update()
 
 
 # # Create the RFE object and compute a cross-validated score.
@@ -173,78 +175,96 @@ y_test = y_test.astype(np.float32)
 
 
 # ------------------- RF Hyperparameter Optimization ------------------------ #
+#%%
+
+# Define estimator
+estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
+                                  random_state=SEED)
+
+# Define cross-validation
+cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
+
+# Define search space
+n_features = x_train.shape[-1]
+
+space = []
+space.append(Integer(1, n_features, name='max_features'))
+space.append(Integer(1, 200, name='max_depth'))
+space.append(Integer(2, 100, name='min_samples_split'))
+space.append(Integer(1, 200, name='min_samples_leaf'))
 
 
-# # Define estimator
-# estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
-#                                   random_state=SEED)
+@use_named_args(space)
+def objective(**params):
+    """Return objective function score for estimator."""
+    # Set hyperparameters from space decorator
+    estimator.set_params(**params)
 
-# # Define cross-validation
-# cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
-
-# # Define search space
-# n_features = x_train.shape[-1]
-
-# space = []
-# space.append(Integer(1, n_features, name='max_features'))
-# space.append(Integer(10, 200, name='max_depth'))
-# space.append(Integer(2, 100, name='min_samples_split'))
-# space.append(Integer(1, 200, name='min_samples_leaf'))
+    return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv,
+                                    n_jobs=-1,
+                                    scoring="neg_mean_squared_error"))
 
 
-# @use_named_args(space)
-# def objective(**params):
-#     """Return objective function score for estimator."""
-#     # Set hyperparameters from space decorator
-#     estimator.set_params(**params)
-
-#     return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv,
-#                                     n_jobs=-1,
-#                                     scoring="neg_mean_squared_error"))
+n_calls = 200
+res_gp = gp_minimize(objective, space, n_calls=n_calls,
+                     random_state=SEED,
+                     callback=[tqdm_skopt(total=n_calls,
+                                          desc='Gaussian Process')])
 
 
-# n_calls = 200
-# res_gp = gp_minimize(objective, space, n_calls=n_calls,
-#                      random_state=SEED,
-#                      callback=[tqdm_skopt(total=n_calls,
-#                                           desc='Gaussian Process')])
+print(f'''Best parameters:
+- max_features={res_gp.x[0]}
+- max_depth={res_gp.x[1]}
+- min_samples_split={res_gp.x[2]}
+- min_samples_leaf={res_gp.x[3]}''')
 
+# max_features=257
+# max_depth=10
+# min_samples_split=23
+# min_samples_leaf=13
 
-# print(f'''Best parameters:
-# - max_features={res_gp.x[0]}
-# - max_depth={res_gp.x[1]}
-# - min_samples_split={res_gp.x[2]}
-# - min_samples_leaf={res_gp.x[3]}''')
+# max_features=226
+# max_depth=23
+# min_samples_split=15
+# min_samples_leaf=19
 
-# # Plot gp_minimize output
-# plot_convergence(res_gp)
-# plt.savefig("GP_convergence_3.svg")
-# plot_objective(res_gp)
-# plt.savefig("GP_objective_3.svg")
-# plot_evaluations(res_gp)
-# plt.savefig("GP_revaluations_3.svg")
+# Plot gp_minimize output
+plot_convergence(res_gp)
+plt.savefig("GP_convergence_5.svg")
+plot_objective(res_gp)
+plt.savefig("GP_objective_5.svg")
+plot_evaluations(res_gp)
+plt.savefig("GP_revaluations_5.svg")
 
 # # Save optimizer
 # dump(res_gp, "optimizers/gp_3.pkl")
 
 
 # ------------------- Training ---------------------------------------------- #
+#%%
 
-
-rf = RandomForestRegressor(n_estimators=500, n_jobs=-1,
-                           random_state=SEED, criterion='mse', verbose=2)
+rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1, random_state=SEED,
+                           criterion='mse', verbose=2)
 rf.fit(x_train, y_train)
 
 
 # ------------------- Testing ----------------------------------------------- #
+#%%
 
 # Predict on test set and reshape pred and true
-y_pred = np.exp(scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1)))
-y_true = np.exp(scaler_y.inverse_transform(y_test.reshape(-1, 1)))
 
+# No log
+y_pred = scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1))
+y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1))
 # Calculate metrics
-r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
-                                       .reshape(1, -1)))[0][0]
+r2 = scaler_y.inverse_transform(rf.score(x_test, y_test).reshape(1, -1))[0][0]
+
+# # Logged
+# y_pred = np.exp(scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1)))
+# y_true = np.exp(scaler_y.inverse_transform(y_test.reshape(-1, 1)))
+# # Calculate metrics
+# r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
+#                                        .reshape(1, -1)))[0][0]
 mse = mean_squared_error(y_true, y_pred)
 me = mean_error(y_true, y_pred)
 mec = model_efficiency_coefficient(y_true, y_pred)
@@ -252,7 +272,7 @@ ccc = lin_ccc(y_true, y_pred)
 
 
 # ------------------- Plotting ---------------------------------------------- #
-
+#%%
 
 fig, ax = plt.subplots(figsize=(8, 8))
 ax.scatter(y_true, y_pred, c=colors[0])
@@ -273,3 +293,5 @@ plt.tight_layout()
 # plt.savefig('RF_x_trees.svg', bbox_inches='tight',
 #             pad_inches=0)
 plt.show()
+
+# %%

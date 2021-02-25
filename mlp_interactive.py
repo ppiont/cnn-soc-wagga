@@ -10,6 +10,7 @@ import random
 # Imports
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
@@ -78,11 +79,13 @@ seed_everything(SEED=SEED)
 # ------------------- Read and prep data ------------------------------------ #
 
 
-train_data = np.load(DATA_DIR.joinpath('train.npy'))
-test_data = np.load(DATA_DIR.joinpath('test.npy'))
+train_data = np.load(DATA_DIR.joinpath('train_no_outlier.npy'))
+test_data = np.load(DATA_DIR.joinpath('test_no_outlier.npy'))
 
 x_train = train_data[:, 1:]
 y_train = train_data[:, 0]
+
+input_shape=x_train.shape[-1]
 
 x_test = test_data[:, 1:]
 y_test = test_data[:, 0]
@@ -135,7 +138,7 @@ class Dataset(torch.utils.data.TensorDataset):
 class NeuralNet(nn.Module):
     """Neural Network class."""
 
-    def __init__(self, input_dims=287, activation=nn.ELU(), dropout=0.5):
+    def __init__(self, input_dims=input_shape, activation=nn.ELU(), dropout=0.5):
         """Initialize as subclass of nn.Module, inherit its methods."""
         super(NeuralNet, self).__init__()
 
@@ -144,15 +147,15 @@ class NeuralNet(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # Layer structure
-        self.fc1 = nn.Linear(self.input_dims, 384)
-        self.b1 = nn.BatchNorm1d(384)
-        self.fc2 = nn.Linear(384, 512)
-        self.b2 = nn.BatchNorm1d(512)
-        self.fc3 = nn.Linear(512, 256)
-        self.b3 = nn.BatchNorm1d(256)
-        self.fc4 = nn.Linear(256, 128)
-        self.b4 = nn.BatchNorm1d(128)
-        self.fc5 = nn.Linear(128, 1)
+        self.fc1 = nn.Linear(self.input_dims, 256)
+        self.b1 = nn.BatchNorm1d(256)
+        self.fc2 = nn.Linear(256, 256)
+        self.b2 = nn.BatchNorm1d(256)
+        self.fc3 = nn.Linear(256, 128)
+        self.b3 = nn.BatchNorm1d(128)
+        self.fc4 = nn.Linear(128, 64)
+        self.b4 = nn.BatchNorm1d(64)
+        self.fc5 = nn.Linear(64, 1)
 
     def forward(self, x):
         """Forward pass."""
@@ -288,7 +291,7 @@ def kfold_cv_train(x_train=x_train, y_train=y_train, model=model, optimizer=opti
 
 
     for fold, (train_index, val_index) in enumerate(kfold.split(x_train, y_train)):
-        print(f'Starting fold {fold + 1}')
+        # print(f'Starting fold {fold + 1}')
         # Get training and val features
         x_train_fold = x_train[train_index]
         x_val_fold = x_train[val_index]
@@ -312,7 +315,8 @@ def kfold_cv_train(x_train=x_train, y_train=y_train, model=model, optimizer=opti
                                              optimizer=optimizer,
                                              loss_fn=loss_fn,
                                              n_epochs=n_epochs,
-                                             patience=patience)
+                                             patience=patience,
+                                             print_progress=False)
         best_losses.append(min(val_loss))
         model.apply(weight_reset)
 
@@ -359,18 +363,31 @@ def kfold_cv_train(x_train=x_train, y_train=y_train, model=model, optimizer=opti
 
 # ------------------- Bayesian optimization --------------------------------- #
 
+
+class tqdm_skopt(object):
+    """Progress bar object for functions with callbacks."""
+
+    def __init__(self, **kwargs):
+        self._bar = tqdm(**kwargs)
+
+    def __call__(self, res):
+        """Update bar with intermediate results."""
+        self._bar.update()
+
+
 # Set parameter search space
 space = []
 # space.append(Categorical(['relu', 'leakyrelu', 'elu'], name='activation'))
 space.append(Real(1e-5, 1e-1, prior='log-uniform', name='learning_rate'))
 space.append(Real(1e-10, 1e-1, prior='log-uniform', name='regularization'))
 space.append(Real(0.0, 0.9, name='dropout'))
-# space.append(Integer(int(32), int(256), name='batch_size', dtype=int))
+space.append(Integer(int(32), int(312), name='batch_size', dtype=int))
 
 # Set default hyperparameters
 default_params = [1e-3,
                   1e-5,
-                  0.5]
+                  0.5,
+                  312]
 
 # Best params from first optimization
 # best_params = ['elu',
@@ -382,9 +399,19 @@ default_params = [1e-3,
 #                 1.0421441915334575e-09,
 #                 0.02539150096227823]
 
+# best_params2 = [0.005315802234314809,
+#                 0.1,
+#                 0.0,
+#                 312]
+
+# best_params_colab = [0.0005877430097476587
+#                      0.1,
+#                      0.10470590080305037,
+#                      312]
+
 # Work in progress
 @use_named_args(dimensions=space)
-def fitness(learning_rate, regularization, dropout):
+def fitness(learning_rate, regularization, dropout, batch_size):
     """Perform Bayesian Hyperparameter tuning."""
 
     # num_epochs = 2000
@@ -396,25 +423,26 @@ def fitness(learning_rate, regularization, dropout):
     #     activation = nn.LeakyReLU()
     # elif activation == 'elu':
     #     activation = nn.ELU()
-    print(f'Learning Rate: {learning_rate:.0e}, Regularization: {regularization:.0e}, ', end='')
-    print(f'Dropout: {dropout:.2f}')  #, Batch Size: {batch_size}')
+    # print(f'Learning Rate: {learning_rate:.0e}, Regularization: {regularization:.0e}, ', end='')
+    # print(f'Dropout: {dropout:.2f}')  #, Batch Size: {batch_size}')
 
     model = NeuralNet(activation=nn.ELU(), dropout=dropout)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=regularization)
     # Create k-fold cross validation
     best_losses, *_ = kfold_cv_train(n_epochs=2000, model=model,
-                                     optimizer=optimizer, batch_size=312)
-    print(f'Avg. best validation loss: {sum(best_losses)/n_splits}')
+                                     optimizer=optimizer, batch_size=batch_size)
+    # print(f'Avg. best validation loss: {sum(best_losses)/n_splits}')
 
     return sum(best_losses)/n_splits
 
-
+n_calls = 200
 # Hyperparemeter search using Gaussian process minimization
 gp_result = gp_minimize(func=fitness,
                         x0=default_params,
                         dimensions=space,
-                        n_calls=100,
-                        verbose=True)
+                        n_calls=n_calls,
+                        verbose=True, callback=[tqdm_skopt(total=n_calls,
+                                          desc='Gaussian Process')])
 
 plot_convergence(gp_result)
 plot_objective(gp_result)
@@ -442,12 +470,13 @@ val = Dataset(X_val, y_val)
 val_loader = DataLoader(val, batch_size=batch_size,
                         shuffle=False, drop_last=False, num_workers=2)
 
-# best_params2 = [0.0012304697066411964,
-#                 1.0421441915334575e-09,
-#                 0.02539150096227823]
+# best_params2 = [0.005315802234314809,
+#                 0.1,
+#                 0.0,
+#                 312]
 
-model = NeuralNet(activation=nn.ELU(), dropout=0.02539150096227823)
-optimizer = optim.AdamW(model.parameters(), lr=0.0012304697066411964, weight_decay=1.0421441915334575e-09)
+model = NeuralNet(activation=nn.ELU(), dropout=0.0)
+optimizer = optim.AdamW(model.parameters(), lr=0.005315802234314809, weight_decay=0.1)
 loss_fn = nn.MSELoss()
 
 n_epochs = 2000
@@ -483,12 +512,10 @@ plt.show()
 
 from sklearn.metrics import mean_squared_error, r2_score
 # Predict on test set and reshape pred and true
-y_pred = np.exp(scaler_y.inverse_transform(model(torch.Tensor(x_test)).detach().numpy().reshape(-1, 1)))
-y_true = np.exp(scaler_y.inverse_transform(y_test.reshape(-1, 1)))
+y_pred = scaler_y.inverse_transform(model(torch.Tensor(x_test)).detach().numpy().reshape(-1, 1))
+y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1))
 
 # Calculate metrics
-# r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
-#                                        .reshape(1, -1)))[0][0]
 r2 = r2_score(y_true, y_pred)
 mse = mean_squared_error(y_true, y_pred)
 me = mean_error(y_true, y_pred)
@@ -515,7 +542,7 @@ ax.text(-11, 370,
         va='top', ha='left', linespacing=1.5, snap=True,
         bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
 plt.tight_layout()
-# plt.savefig('RF_x_trees.svg', bbox_inches='tight',
+# plt.savefig('NN_x_x.svg', bbox_inches='tight',
 #             pad_inches=0)
 plt.show()
 # %%

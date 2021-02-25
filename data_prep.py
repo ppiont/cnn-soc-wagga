@@ -5,7 +5,7 @@ import pathlib
 
 # Imports
 import numpy as np
-# import numpy.ma as ma
+import numpy.ma as ma
 import geopandas as gpd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
@@ -25,7 +25,7 @@ SEED = 43
 
 
 # Load target data
-target_data = gpd.read_file(DATA_DIR.joinpath('germany_targets.geojson'),
+target_data = gpd.read_file(DATA_DIR.joinpath('targets/germany_targets.geojson'),
                             driver='GeoJSON')
 # Get target array
 targets = target_data.OC.values
@@ -38,13 +38,13 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
                                                     test_size=0.2,
                                                     random_state=SEED)
 
-# # Remove outliers
-# std = np.std(y_train)
-# mean = np.mean(y_train)
-# cut_off = 3 * std
-# mask = ma.masked_where(abs(y_train-mean) > cut_off, y_train)
-# x_train = x_train[~mask.mask]
-# y_train = y_train[~mask.mask]
+# Remove outliers
+std = np.std(y_train)
+mean = np.mean(y_train)
+cut_off = 3 * std
+mask = ma.masked_where(abs(y_train-mean) > cut_off, y_train)
+x_train = x_train[~mask.mask]
+y_train = y_train[~mask.mask]
 
 # Shift values to remove negatives
 x_train = np.apply_along_axis(add_min, 0, x_train)
@@ -91,5 +91,5 @@ train = np.hstack((np.expand_dims(y_train, axis=-1), x_train))
 test = np.hstack((np.expand_dims(y_test, axis=-1), x_test))
 
 # Save data
-np.save(DATA_DIR.joinpath('train.npy'), train)
-np.save(DATA_DIR.joinpath('test.npy'), test)
+np.save(DATA_DIR.joinpath('train_log_no_outlier.npy'), train)
+np.save(DATA_DIR.joinpath('test_log_no_outlier.npy'), test)
