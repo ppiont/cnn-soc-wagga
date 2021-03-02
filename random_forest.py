@@ -97,8 +97,8 @@ SEED = 43
 
 # This data was prepped in data_prep.py, which does the same as the code above,
 # except it doesn't remove outliers
-train_data = np.load(DATA_DIR.joinpath('train_no_outlier.npy'))
-test_data = np.load(DATA_DIR.joinpath('test_no_outlier.npy'))
+train_data = np.load(DATA_DIR.joinpath('train_no_log.npy'))
+test_data = np.load(DATA_DIR.joinpath('test_no_log.npy'))
 x_train = train_data[:, 1:]
 y_train = train_data[:, 0]
 x_test = test_data[:, 1:]
@@ -178,7 +178,7 @@ class tqdm_skopt(object):
 #%%
 
 # Define estimator
-estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
+estimator = RandomForestRegressor(n_estimators=100, n_jobs=-1,
                                   random_state=SEED)
 
 # Define cross-validation
@@ -205,7 +205,7 @@ def objective(**params):
                                     scoring="neg_mean_squared_error"))
 
 
-n_calls = 200
+n_calls = 20
 res_gp = gp_minimize(objective, space, n_calls=n_calls,
                      random_state=SEED,
                      callback=[tqdm_skopt(total=n_calls,

@@ -38,23 +38,23 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
                                                     test_size=0.2,
                                                     random_state=SEED)
 
-# Remove outliers
-std = np.std(y_train)
-mean = np.mean(y_train)
-cut_off = 3 * std
-mask = ma.masked_where(abs(y_train-mean) > cut_off, y_train)
-x_train = x_train[~mask.mask]
-y_train = y_train[~mask.mask]
+# # Remove outliers
+# std = np.std(y_train)
+# mean = np.mean(y_train)
+# cut_off = 3 * std
+# mask = ma.masked_where(abs(y_train-mean) > cut_off, y_train)
+# x_train = x_train[~mask.mask]
+# y_train = y_train[~mask.mask]
 
-# Shift values to remove negatives
-x_train = np.apply_along_axis(add_min, 0, x_train)
-x_test = np.apply_along_axis(add_min, 0, x_test)
+# # Shift values to remove negatives
+# x_train = np.apply_along_axis(add_min, 0, x_train)
+# x_test = np.apply_along_axis(add_min, 0, x_test)
 
-# Log transform
-x_train = safe_log(x_train)
-x_test = safe_log(x_test)
-y_train = safe_log(y_train)
-y_test = safe_log(y_test)
+# # Log transform
+# x_train = safe_log(x_train)
+# x_test = safe_log(x_test)
+# y_train = safe_log(y_train)
+# y_test = safe_log(y_test)
 
 # Identify features with 0 variance
 zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
@@ -91,5 +91,5 @@ train = np.hstack((np.expand_dims(y_train, axis=-1), x_train))
 test = np.hstack((np.expand_dims(y_test, axis=-1), x_test))
 
 # Save data
-np.save(DATA_DIR.joinpath('train_log_no_outlier.npy'), train)
-np.save(DATA_DIR.joinpath('test_log_no_outlier.npy'), test)
+np.save(DATA_DIR.joinpath('train_no_log.npy'), train)
+np.save(DATA_DIR.joinpath('test_no_log.npy'), test)

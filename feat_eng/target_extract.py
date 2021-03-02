@@ -5,7 +5,7 @@ Created on Wed Sep 30 16:12:56 2020.
 
 @author: peter
 """
-
+#%%
 import pandas as pd
 import geopandas as gpd
 import cartopy.io.shapereader as shpreader
@@ -34,7 +34,7 @@ def target_extract(path, country, lat_col, lon_col, crs='EPSG:4326'):
 
     """
     # Read input from path
-    df = pd.read_table('data/LUCAS_TOPSOIL_v1.csv', sep=None, engine='python')
+    df = pd.read_table(path, sep=None, engine='python')
 
     # Create GeoDataFrame with geometry
     gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(
@@ -56,9 +56,11 @@ def target_extract(path, country, lat_col, lon_col, crs='EPSG:4326'):
     return subset
 
 
-# targets = target_extract('data/LUCAS_TOPSOIL_v1.csv', 'Germany', 'GPS_LAT',
-#                       'GPS_LONG')
+targets = target_extract('data/original_data/LUCAS_TOPSOIL_v1.csv', 'Germany', 'GPS_LAT',
+                      'GPS_LONG')
 
 # targets.to_file("germany_targets.geojson", driver='GeoJSON')
 # targets.to_csv('germany_targets.csv')
 # targets.to_pickle('germany_targets.pkl')
+
+# %%

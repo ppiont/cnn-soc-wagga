@@ -38,7 +38,6 @@ from custom_metrics.metrics import (mean_error, lin_ccc,
 
 """
 Use Torch Dataset.. you made a class for it dummy
-Should I shuffle train_loader in CV?
 """
 
 # ------------------- Settings ---------------------------------------------- #
@@ -79,13 +78,13 @@ seed_everything(SEED=SEED)
 # ------------------- Read and prep data ------------------------------------ #
 
 
-train_data = np.load(DATA_DIR.joinpath('train_no_outlier.npy'))
-test_data = np.load(DATA_DIR.joinpath('test_no_outlier.npy'))
+train_data = np.load(DATA_DIR.joinpath('train_no_log.npy'))
+test_data = np.load(DATA_DIR.joinpath('test_no_log.npy'))
 
 x_train = train_data[:, 1:]
 y_train = train_data[:, 0]
 
-input_shape=x_train.shape[-1]
+input_dims=x_train.shape[-1]
 
 x_test = test_data[:, 1:]
 y_test = test_data[:, 0]
@@ -134,48 +133,40 @@ class Dataset(torch.utils.data.TensorDataset):
 
 # ------------------- NN setup ---------------------------------------------- #
 
-
 class NeuralNet(nn.Module):
     """Neural Network class."""
 
-    def __init__(self, input_dims=input_shape, activation=nn.ELU(), dropout=0.5):
+    def __init__(self, input_dims=input_dims, n_layers=3, n_neurons=64,
+                 activation=nn.ELU(), dropout_rate=0.5):
         """Initialize as subclass of nn.Module, inherit its methods."""
         super(NeuralNet, self).__init__()
 
         self.input_dims = input_dims
-        self.activation = activation
-        self.dropout = nn.Dropout(p=dropout)
+        self.n_neurons = n_neurons
+        self.n_layers = n_layers
 
         # Layer structure
-        self.fc1 = nn.Linear(self.input_dims, 256)
-        self.b1 = nn.BatchNorm1d(256)
-        self.fc2 = nn.Linear(256, 256)
-        self.b2 = nn.BatchNorm1d(256)
-        self.fc3 = nn.Linear(256, 128)
-        self.b3 = nn.BatchNorm1d(128)
-        self.fc4 = nn.Linear(128, 64)
-        self.b4 = nn.BatchNorm1d(64)
-        self.fc5 = nn.Linear(64, 1)
+        # First layer
+        self.in_layer = nn.Linear(self.input_dims, self.n_neurons)
+
+        # Dense, Dropout, Activation and BN
+        self.dense = nn.Linear(self.n_neurons, self.n_neurons)
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.activation = activation
+        self.batchnorm = nn.BatchNorm1d(self.n_neurons)
+
+        # Output layer
+        self.out_layer = nn.Linear(self.n_neurons, 1)
 
     def forward(self, x):
         """Forward pass."""
-        x = self.fc1(x)
-        x = self.dropout(x)  # set mode?
-        x = self.activation(x)
-        x = self.b1(x)
-        x = self.fc2(x)
-        x = self.dropout(x)
-        x = self.activation(x)
-        x = self.b2(x)
-        x = self.fc3(x)
-        x = self.dropout(x)
-        x = self.activation(x)
-        x = self.b3(x)
-        x = self.fc4(x)
-        x = self.dropout(x)
-        x = self.activation(x)
-        x = self.b4(x)
-        x = self.fc5(x)
+                
+        x = self.batchnorm(self.activation(self.dropout(self.in_layer(x))))
+
+        for i in range(self.n_layers-1):
+            x = self.batchnorm(self.activation(self.dropout(self.dense(x))))
+
+        x = self.out_layer(x)
 
         return x
 
@@ -201,7 +192,7 @@ def train_step(model, features, targets, optimizer, loss_fn):
 
 
 def train_network(model, train_data, val_data, optimizer, loss_fn,
-                  n_epochs=300, patience=20, print_progress=True):
+                  n_epochs=2000, patience=100, print_progress=True):
     """Train a neural network model."""
     # Initalize loss as very high
     best_loss = 1e8
@@ -253,7 +244,7 @@ def train_network(model, train_data, val_data, optimizer, loss_fn,
                 break
         # Print progress at set epoch intervals if desired
         if print_progress:
-            if (epoch + 1) % 100 == 0:
+            if (epoch + 1) % 10 == 0:
                 print(f'Epoch {epoch+1} Train Loss: {train_epoch_loss:.4}, ', end='')
                 print(f'Val Loss: {val_epoch_loss:.4}')
 
@@ -269,26 +260,12 @@ def weight_reset(m):
 #%%
 # ------------------- Cross-validation -------------------------------------- #
 
-model = NeuralNet(activation=nn.ELU(), dropout=0.5)
-lr = 1e-3
-regu = 1e-2
-# SGD/RMSProp
-# L1 regu
-optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=regu)
-loss_fn = nn.MSELoss()
-batch_size = 312
-n_epochs = 2000
-n_splits = 5
-patience = 100
-
-
-def kfold_cv_train(x_train=x_train, y_train=y_train, model=model, optimizer=optimizer,
-                    loss_fn=nn.MSELoss(), n_splits=5, batch_size=128,
-                    n_epochs=500, patience=100, shuffle=True, rng=SEED):
+def kfold_cv_train(x_train, y_train, model, optimizer,loss_fn=nn.MSELoss(), 
+                   n_splits=5, batch_size=312, n_epochs=2000, patience=100,
+                   shuffle=True, rng=SEED):
     """Train a NN with K-Fold cross-validation."""
     kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=rng)
     best_losses = []
-
 
     for fold, (train_index, val_index) in enumerate(kfold.split(x_train, y_train)):
         # print(f'Starting fold {fold + 1}')
@@ -316,11 +293,11 @@ def kfold_cv_train(x_train=x_train, y_train=y_train, model=model, optimizer=opti
                                              loss_fn=loss_fn,
                                              n_epochs=n_epochs,
                                              patience=patience,
-                                             print_progress=False)
+                                             print_progress=True)
         best_losses.append(min(val_loss))
         model.apply(weight_reset)
 
-    return best_losses, train_loss, val_loss
+    return sum(best_losses)/n_splits, train_loss, val_loss
 
 
 #%%
@@ -378,16 +355,22 @@ class tqdm_skopt(object):
 # Set parameter search space
 space = []
 # space.append(Categorical(['relu', 'leakyrelu', 'elu'], name='activation'))
-space.append(Real(1e-5, 1e-1, prior='log-uniform', name='learning_rate'))
-space.append(Real(1e-10, 1e-1, prior='log-uniform', name='regularization'))
-space.append(Real(0.0, 0.9, name='dropout'))
+space.append(Real(1e-5, 1e-1, name='learning_rate'))
+space.append(Real(1e-10, 1e-1, name='regularization'))
+space.append(Real(0.0, 0.9, name='dropout_rate'))
 space.append(Integer(int(32), int(312), name='batch_size', dtype=int))
+space.append(Categorical(['relu', 'leakyrelu', 'prelu', 'elu', 'selu'], name='activation'))
+space.append(Integer(int(1), int(5), name='n_layers', dtype=int))
+space.append(Integer(int(16), int(512), name='n_neurons', dtype=int))
 
 # Set default hyperparameters
 default_params = [1e-3,
                   1e-5,
                   0.5,
-                  312]
+                  312,
+                  'elu',
+                  3,
+                  256]
 
 # Best params from first optimization
 # best_params = ['elu',
@@ -409,31 +392,48 @@ default_params = [1e-3,
 #                      0.10470590080305037,
 #                      312]
 
+# best_params_colab_2 = [0.03515548117742212,
+#                        0.028447742073976556,
+#                        0.4689641252284146,
+#                        310,
+#                        'leakyrelu',
+#                        3,
+#                        213]
+
+# best params no log
+# [0.1, 0.1, 0.0, 312, 'elu', 1, 16]
+
 # Work in progress
 @use_named_args(dimensions=space)
-def fitness(learning_rate, regularization, dropout, batch_size):
+def fitness(learning_rate, regularization, dropout_rate, batch_size, activation,
+            n_layers, n_neurons):
     """Perform Bayesian Hyperparameter tuning."""
 
-    # num_epochs = 2000
-    # n_splits = 5
-    # patience = 100
-    # if activation == 'relu':
-    #     activation = nn.ReLU()
-    # elif activation == 'leakyrelu':
-    #     activation = nn.LeakyReLU()
-    # elif activation == 'elu':
-    #     activation = nn.ELU()
+    if activation == 'relu':
+        activation = nn.ReLU()
+    elif activation == 'leakyrelu':
+        activation = nn.LeakyReLU()
+    elif activation == 'elu':
+        activation = nn.ELU()
+    elif activation == 'selu':
+        activation = nn.SELU()
+    elif activation == 'prelu':
+        activation = nn.PReLU()
+
     # print(f'Learning Rate: {learning_rate:.0e}, Regularization: {regularization:.0e}, ', end='')
     # print(f'Dropout: {dropout:.2f}')  #, Batch Size: {batch_size}')
 
-    model = NeuralNet(activation=nn.ELU(), dropout=dropout)
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=regularization)
+    model = NeuralNet(activation=activation, dropout_rate=dropout_rate,
+                      n_layers=n_layers, n_neurons=n_neurons)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
+                                                weight_decay=regularization)
     # Create k-fold cross validation
-    best_losses, *_ = kfold_cv_train(n_epochs=2000, model=model,
-                                     optimizer=optimizer, batch_size=batch_size)
+    avg_best_loss, *_ = kfold_cv_train(x_train=x_train, y_train=y_train,
+                                     model=model, optimizer=optimizer,
+                                     batch_size=batch_size)
     # print(f'Avg. best validation loss: {sum(best_losses)/n_splits}')
 
-    return sum(best_losses)/n_splits
+    return avg_best_loss
 
 n_calls = 200
 # Hyperparemeter search using Gaussian process minimization
@@ -441,6 +441,7 @@ gp_result = gp_minimize(func=fitness,
                         x0=default_params,
                         dimensions=space,
                         n_calls=n_calls,
+                        random_state=SEED,
                         verbose=True, callback=[tqdm_skopt(total=n_calls,
                                           desc='Gaussian Process')])
 
@@ -455,33 +456,42 @@ gp_result.x
 
 #%%
 
+
+# best_params_colab_2 = [0.03515548117742212,
+#                        0.028447742073976556,
+#                        0.4689641252284146,
+#                        310,
+#                        'leakyrelu',
+#                        3,
+#                        213]
+
+# [0.1, 0.1, 0.0, 312, 'elu', 1, 16]
+lr = 0.1
+regu = 0.1
+dropout_rate = 0.0
 batch_size = 312
+activation = nn.ELU()
+n_layers = 1
+n_neurons = 16
+
+n_epochs = 2000
+patience = 100
 
 
-######## WORK IN PROG #######
 X_train, X_val, y_train, y_val = train_test_split(x_train, y_train,
-                                            test_size=0.2, random_state=SEED)
+                                            test_size=0.3, random_state=SEED)
 
 train = Dataset(X_train, y_train)
 train_loader = DataLoader(train, batch_size=batch_size,
-                             shuffle=False, drop_last=False, num_workers=2)
+                             shuffle=True, drop_last=False, num_workers=2)
 
 val = Dataset(X_val, y_val)
 val_loader = DataLoader(val, batch_size=batch_size,
                         shuffle=False, drop_last=False, num_workers=2)
 
-# best_params2 = [0.005315802234314809,
-#                 0.1,
-#                 0.0,
-#                 312]
-
-model = NeuralNet(activation=nn.ELU(), dropout=0.0)
-optimizer = optim.AdamW(model.parameters(), lr=0.005315802234314809, weight_decay=0.1)
+model = NeuralNet(activation=activation, dropout_rate=dropout_rate)
+optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=regu)
 loss_fn = nn.MSELoss()
-
-n_epochs = 2000
-n_splits = 5
-patience = 100
 
 # Run training
 result = train_network(model, train_data=train_loader, val_data=val_loader, 
