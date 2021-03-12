@@ -9,7 +9,7 @@ import numpy.ma as ma
 import geopandas as gpd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-
+                                    
 
 # Custom imports
 from feat_eng.funcs import add_min, safe_log  # , highlight_corr_idx
@@ -28,7 +28,7 @@ SEED = 43
 target_data = gpd.read_file(DATA_DIR.joinpath('targets/germany_targets.geojson'),
                             driver='GeoJSON')
 # Get target array
-targets = target_data.OC.values
+targets = target_data[['OC', 'GPS_LAT', 'GPS_LONG']].to_numpy()
 # Load feature array
 features = np.load(DATA_DIR.joinpath('numerical_feats.npy'))
 # Get the center pixel (along axes=(1, 2))
@@ -46,15 +46,15 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
 # x_train = x_train[~mask.mask]
 # y_train = y_train[~mask.mask]
 
-# # Shift values to remove negatives
-# x_train = np.apply_along_axis(add_min, 0, x_train)
-# x_test = np.apply_along_axis(add_min, 0, x_test)
+# Shift values to remove negatives
+x_train = np.apply_along_axis(add_min, 0, x_train)
+x_test = np.apply_along_axis(add_min, 0, x_test)
 
-# # Log transform
-# x_train = safe_log(x_train)
-# x_test = safe_log(x_test)
-# y_train = safe_log(y_train)
-# y_test = safe_log(y_test)
+# Log transform
+x_train = safe_log(x_train)
+x_test = safe_log(x_test)
+y_train[:, 0] = safe_log(y_train[:, 0])
+y_test[:, 0] = safe_log(y_test[:, 0])
 
 # Identify features with 0 variance
 zero_var_idx = np.where(np.var(x_train, axis=0) == 0)[0]
@@ -87,9 +87,9 @@ x_test = x_test.astype(np.float32)
 y_test = y_test.astype(np.float32)
 
 # Concat (y, x)
-train = np.hstack((np.expand_dims(y_train, axis=-1), x_train))
-test = np.hstack((np.expand_dims(y_test, axis=-1), x_test))
+train = np.hstack((y_train, x_train))
+test = np.hstack((y_test, x_test))
 
 # Save data
-np.save(DATA_DIR.joinpath('train_no_log.npy'), train)
-np.save(DATA_DIR.joinpath('test_no_log.npy'), test)
+np.save(DATA_DIR.joinpath('train_new.npy'), train)
+np.save(DATA_DIR.joinpath('test_new.npy'), test)

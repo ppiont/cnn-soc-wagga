@@ -71,9 +71,7 @@ def feature_extract(target_path, raster_dir, win_size):
                     inner_array = np.expand_dims(clip, -1)
 
         if i > 0:
-            outer_array = np.append(outer_array, np.expand_dims(inner_array,
-                                                                0),
-                                    0)
+            outer_array = np.append(outer_array, np.expand_dims(inner_array, 0), 0)
 
         else:
             outer_array = np.expand_dims(inner_array, 0)
@@ -82,8 +80,8 @@ def feature_extract(target_path, raster_dir, win_size):
     return outer_array
 
 
-# t_path = '/home/peter/GDrive/Thesis/cnn-soc-wagga/data/germany_targets.geojson'
-# r_path = '/home/peter/GDrive/Thesis/cnn-soc-wagga/data/germany_covars'
+# t_path = '/home/peter/GDrive/Thesis/cnn-soc-wagga/data/targets/germany_targets.geojson'
+# r_path = '/home/peter/GDrive/Thesis/cnn-soc-wagga/data/original_data/germany_covars'
 
 # new_array = feature_extract(t_path, r_path, 15)
 

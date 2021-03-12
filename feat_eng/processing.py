@@ -29,8 +29,8 @@ data_dir = pathlib.Path('data/')
 # ------------------- Features ---------------------------------------------- #
 
 # Get target and feature paths
-# t_path = data_dir.joinpath('germany_targets.geojson'
-# r_path = data_dir.joinpath('germany_covars/'
+# t_path = data_dir.joinpath('targets/germany_targets.geojson'
+# r_path = data_dir.joinpath('original_data/germany_covars/'
 
 # Extract features
 # feats = feature_extract(t_path, r_path, 15)
@@ -59,6 +59,6 @@ del numerical  # delete to free memory
 
 categorical = feats[:, :, :, mask]
 np.save(data_dir.joinpath('categorical_feats.npy'), categorical)
-del categorical  # delete to free memory
 
+del categorical  # delete to free memory
 del feats  # delete to free memory

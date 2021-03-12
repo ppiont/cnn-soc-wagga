@@ -56,8 +56,8 @@ def target_extract(path, country, lat_col, lon_col, crs='EPSG:4326'):
     return subset
 
 
-targets = target_extract('data/original_data/LUCAS_TOPSOIL_v1.csv', 'Germany', 'GPS_LAT',
-                      'GPS_LONG')
+targets = target_extract('data/original_data/LUCAS_TOPSOIL_v1.csv', 'Germany',
+                         'GPS_LAT', 'GPS_LONG')
 
 # targets.to_file("germany_targets.geojson", driver='GeoJSON')
 # targets.to_csv('germany_targets.csv')
