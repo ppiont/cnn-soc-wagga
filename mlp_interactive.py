@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
-from skopt import gp_minimize, dump, load
+from skopt import gp_minimize
 from skopt.space import Integer, Real, Categorical
 from skopt.utils import use_named_args
 from skopt.plots import plot_objective, plot_convergence, plot_evaluations
@@ -38,6 +38,8 @@ from custom_metrics.metrics import (mean_error, lin_ccc,
 
 """
 Use Torch Dataset.. you made a class for it dummy
+[0.07358756448295099, 0.1, 0.14635936519340323, 1, 213]
+^best params from "final" colab run
 """
 
 # ------------------- Settings ---------------------------------------------- #
@@ -457,15 +459,6 @@ gp_result.x
 #%%
 
 
-# best_params_colab_2 = [0.03515548117742212,
-#                        0.028447742073976556,
-#                        0.4689641252284146,
-#                        310,
-#                        'leakyrelu',
-#                        3,
-#                        213]
-
-# [0.1, 0.1, 0.0, 312, 'elu', 1, 16]
 lr = 0.1
 regu = 0.1
 dropout_rate = 0.0
@@ -556,3 +549,6 @@ plt.tight_layout()
 #             pad_inches=0)
 plt.show()
 # %%
+
+#learning, regu, dropout, neurons (3 layers) file: mlp_objective
+#[0.03810305602843428, 0.04713750329746542, 0.5360799072946582, 99]

@@ -9,8 +9,7 @@ import pathlib
 import numpy as np
 # import numpy.ma as ma
 # import pandas as pd
-import geopandas as gpd
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from sklearn.model_selection import KFold, cross_val_score
 from skopt.utils import use_named_args
 from sklearn.preprocessing import MinMaxScaler
 # from sklearn.feature_selection import RFECV
@@ -18,15 +17,14 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from skopt.learning import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from skopt import gp_minimize  #, dump, load
-from skopt.space import Integer  # , Real
+from skopt import gp_minimize
+from skopt.space import Integer
 from skopt.plots import plot_objective, plot_evaluations, plot_convergence
 from tqdm import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 # Custom imports
-from feat_eng.funcs import add_min, safe_log  # , get_corr_feats, min_max
 from custom_metrics.metrics import (mean_error, lin_ccc,
                                     model_efficiency_coefficient)
 
@@ -50,7 +48,6 @@ mpl.rcParams['savefig.format'] = 'svg'
 
 
 DATA_DIR = pathlib.Path('data/')
-OPTIMIZER_DIR = pathlib.Path('optimizers/')
 SEED = 43
 
 
@@ -97,8 +94,8 @@ SEED = 43
 
 # This data was prepped in data_prep.py, which does the same as the code above,
 # except it doesn't remove outliers
-train_data = np.load(DATA_DIR.joinpath('train_no_log.npy'))
-test_data = np.load(DATA_DIR.joinpath('test_no_log.npy'))
+train_data = np.load(DATA_DIR.joinpath('train.npy'))
+test_data = np.load(DATA_DIR.joinpath('test.npy'))
 x_train = train_data[:, 1:]
 y_train = train_data[:, 0]
 x_test = test_data[:, 1:]
@@ -120,7 +117,7 @@ x_test = scaler_x.transform(x_test)
 scaler_y = MinMaxScaler()
 scaler_y.fit(y_train.reshape(-1, 1))
 y_train = scaler_y.transform(y_train.reshape(-1, 1)).flatten()
-y_test = scaler_y.transform(y_test.reshape(-1, 1)).flatten()
+# y_test = scaler_y.transform(y_test.reshape(-1, 1)).flatten()
 
 # Convert data to float32
 x_train = x_train.astype(np.float32)
@@ -223,28 +220,27 @@ print(f'''Best parameters:
 # min_samples_split=23
 # min_samples_leaf=13
 
-# max_features=226
-# max_depth=23
-# min_samples_split=15
-# min_samples_leaf=19
+# - max_features=257
+# - max_depth=198
+# - min_samples_split=4
+# - min_samples_leaf=4
+
 
 # Plot gp_minimize output
-plot_convergence(res_gp)
-plt.savefig("GP_convergence_5.svg")
-plot_objective(res_gp)
-plt.savefig("GP_objective_5.svg")
-plot_evaluations(res_gp)
-plt.savefig("GP_revaluations_5.svg")
-
-# # Save optimizer
-# dump(res_gp, "optimizers/gp_3.pkl")
+# plot_convergence(res_gp)
+# plt.savefig("GP_convergence_5.svg")
+# plot_objective(res_gp)
+# plt.savefig("GP_objective_5.svg")
+# plot_evaluations(res_gp)
+# plt.savefig("GP_revaluations_5.svg")
 
 
 # ------------------- Training ---------------------------------------------- #
 #%%
 
 rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1, random_state=SEED,
-                           criterion='mse', verbose=2)
+                           criterion='mse', verbose=2, max_features=257,
+                           max_depth=198, min_samples_split=4, min_samples_leaf=4)
 rf.fit(x_train, y_train)
 
 
@@ -253,18 +249,19 @@ rf.fit(x_train, y_train)
 
 # Predict on test set and reshape pred and true
 
-# No log
-y_pred = scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1))
-y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1))
-# Calculate metrics
-r2 = scaler_y.inverse_transform(rf.score(x_test, y_test).reshape(1, -1))[0][0]
+# # No log
+# y_pred = scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1))
+# y_true = scaler_y.inverse_transform(y_test.reshape(-1, 1))
+# # Calculate metrics
+# r2 = scaler_y.inverse_transform(rf.score(x_test, y_test).reshape(1, -1))[0][0]
 
 # # Logged
-# y_pred = np.exp(scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1)))
-# y_true = np.exp(scaler_y.inverse_transform(y_test.reshape(-1, 1)))
-# # Calculate metrics
+y_pred = np.exp(scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1)))
+y_true = np.exp(y_test).reshape(-1, 1)
+# Calculate metrics
 # r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
 #                                        .reshape(1, -1)))[0][0]
+r2 = r2_score(y_true, y_pred)
 mse = mean_squared_error(y_true, y_pred)
 me = mean_error(y_true, y_pred)
 mec = model_efficiency_coefficient(y_true, y_pred)
@@ -273,6 +270,54 @@ ccc = lin_ccc(y_true, y_pred)
 
 # ------------------- Plotting ---------------------------------------------- #
 #%%
+
+# fig, ax = plt.subplots(figsize=(8, 8))
+# ax.scatter(y_true, y_pred, c=colors[0])
+# ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
+#         '--', lw=2, label='1:1 line', c=colors[1])
+# ax.set_xlabel('Actual')
+# ax.set_ylabel('Predicted')
+# # Regression line
+# y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
+# ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
+#         c=colors[2], lw=2, label='Trend')
+# ax.legend(loc='upper left')
+# ax.text(-11, 370,
+#         f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
+#         va='top', ha='left', linespacing=1.5, snap=True,
+#         bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
+# plt.tight_layout()
+# # plt.savefig('RF_x_trees.svg', bbox_inches='tight',
+# #             pad_inches=0)
+# plt.show()
+
+# # %%
+
+# fig, ax = plt.subplots(figsize=(8, 8))
+# ax.scatter(y_true, y_pred, c=colors[0], marker='.', s=50)
+# ax.plot([0, 50], [0, 50],
+#         '--', lw=2, label='1:1 line', c=colors[1])
+# # ax.set_xlabel('Actual')
+# # ax.set_ylabel('Predicted')
+# # Regression line
+# y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
+# ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
+#         c=colors[2], lw=2, label='Trend')
+# # ax.legend(loc='upper left')
+# # ax.text(-11, 370,
+# #         f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
+# #         va='top', ha='left', linespacing=1.5, snap=True,
+# #         bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
+# ax.set_xlim([0, 50])
+# ax.set_ylim([0, 50])
+# plt.tight_layout()
+# # plt.savefig('RF_x_trees.svg', bbox_inches='tight',
+# #             pad_inches=0)
+# plt.show()
+# %%
+
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 fig, ax = plt.subplots(figsize=(8, 8))
 ax.scatter(y_true, y_pred, c=colors[0])
@@ -292,6 +337,17 @@ ax.text(-11, 370,
 plt.tight_layout()
 # plt.savefig('RF_x_trees.svg', bbox_inches='tight',
 #             pad_inches=0)
-plt.show()
 
+ # location for the zoomed portion 
+sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5]) 
+# plot the zoomed portion
+sub_ax.scatter(y_true, y_pred, c=colors[0], s = 10)
+sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
+        '--', lw=2, c=colors[1])
+sub_ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
+        c=colors[2], lw=2)
+sub_ax.set_xlim([0, 60])
+sub_ax.set_ylim([0, 60])
+
+plt.show()
 # %%
