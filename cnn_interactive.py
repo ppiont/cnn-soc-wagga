@@ -80,16 +80,34 @@ seed_everything(SEED=SEED)
 # ------------------- Read and prep data ------------------------------------ #
 
 
-train_data = np.load(DATA_DIR.joinpath('train_new.npy'))
-test_data = np.load(DATA_DIR.joinpath('test_new.npy'))
+x_train = np.load(DATA_DIR.joinpath('x_train_cnn.npy'))
+y_train = np.load(DATA_DIR.joinpath('y_train_cnn.npy'))
 
-x_train = train_data[:, 3:]
-y_train = train_data[:, 0]
+x_test = np.load(DATA_DIR.joinpath('x_test_cnn.npy'))
+y_test = np.load(DATA_DIR.joinpath('y_test_cnn.npy'))
 
-x_test = test_data[:, 3:]
-y_test = test_data[:, 0]
+y_train, y_test = y_train[:, 0], y_test[:, 0]
+
+
+#%%
 
 input_dims=x_train.shape[-1]
+
+n_channels = input_dims
+data_transformed = np.zeros_like(x_train)
+
+channel_scalers = []
+
+for i in range(n_channels):
+    mmx = MinMaxScaler()
+    slc = x_train[:, :, :, i].reshape(x_train.shape[0], -1) # make it a bunch of row vectors
+    transformed = mmx.fit_transform(slc)
+    transformed = transformed.reshape(x_train.shape[0], 15, 15) # reshape it back to tiles
+    data_transformed[:, :, :, i] = transformed # put it in the transformed array
+    channel_scalers.append(mmx) # store the transform
+
+#%%
+
 
 # Normalize X
 scaler_x = MinMaxScaler()
@@ -391,23 +409,13 @@ gp_result.x
 #%%
 
 # [0.07482420407147314, 0.025136732303555738, 0.22345284956151534, 1, 256]
-cur_best = [0.05238007303636225, 0.08309659055141555, 0.2070546108495459, 1, 236]
-
-
-def set_hyperparams(lr, regu, dropout_rate, n_layers, n_neurons):
-    return lr, regu, dropout_rate, n_layers, n_neurons
-
-
-lr, regu, dropout_rate, n_layers, n_neurons = set_hyperparams(*cur_best)
-
-# lr = 0.07482420407147314
-# regu = 0.025136732303555738
-# dropout_rate = 0.22345284956151534
-# n_layers = 1
-# n_neurons = 256
-
+lr = 0.07482420407147314
+regu = 0.025136732303555738
+dropout_rate = 0.22345284956151534
 batch_size = 312
 activation = nn.ELU()
+n_layers = 1
+n_neurons = 256
 
 n_epochs = 2000
 patience = 100
@@ -443,7 +451,7 @@ plt.yscale('log')
 plt.legend()
 plt.show()
 
-#%%
+# %%
 
 # ------------------- Testing ----------------------------------------------- #
 
@@ -461,61 +469,4 @@ mec = model_efficiency_coefficient(y_true, y_pred)
 ccc = lin_ccc(y_true, y_pred)
 
 
-# ------------------- Plotting ---------------------------------------------- #
-#%%
 
-fig, ax = plt.subplots(figsize=(8, 8))
-ax.scatter(y_true, y_pred, c=colors[0])
-ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, label='1:1 line', c=colors[1])
-ax.set_xlabel('Actual')
-ax.set_ylabel('Predicted')
-# Regression line
-y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
-ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2, label='Trend')
-ax.legend(loc='upper left')
-ax.text(-11, 370,
-        f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
-        va='top', ha='left', linespacing=1.5, snap=True,
-        bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
-plt.tight_layout()
-# plt.savefig('NN_x_x.svg', bbox_inches='tight',
-#             pad_inches=0)
-plt.show()
-
-
-
-# %%
-fig, ax = plt.subplots(figsize=(8, 8))
-ax.scatter(y_true, y_pred, c=colors[0])
-ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, label='1:1 line', c=colors[1])
-ax.set_xlabel('Actual')
-ax.set_ylabel('Predicted')
-# Regression line
-y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
-ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2, label='Trend')
-ax.legend(loc='upper left')
-ax.text(-11, 370,
-        f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
-        va='top', ha='left', linespacing=1.5, snap=True,
-        bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
-plt.tight_layout()
-# plt.savefig('RF_x_trees.svg', bbox_inches='tight',
-#             pad_inches=0)
-
- # location for the zoomed portion 
-sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5]) 
-# plot the zoomed portion
-sub_ax.scatter(y_true, y_pred, c=colors[0], s = 10)
-sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, c=colors[1])
-sub_ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2)
-sub_ax.set_xlim([0, 60])
-sub_ax.set_ylim([0, 60])
-
-plt.show()
-# %%
