@@ -6,7 +6,8 @@ import pathlib
 # Imports
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+
+# from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import KFold
 import torch
@@ -15,13 +16,13 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import copy
-import pdb  # Brug det
 
+# import pdb  # Brug det
 
 # Custom imports
 from feat_eng.funcs import add_min, safe_log  # , get_corr_feats, min_max
-from custom_metrics.metrics import (mean_error, lin_ccc,
-                                    model_efficiency_coefficient)
+
+# from custom_metrics.metrics import mean_error, lin_ccc, model_efficiency_coefficient
 
 # ------------------- TO DO ------------------------------------------------- #
 
@@ -48,11 +49,11 @@ train() eval() modes and regularization (dropout)
 
 
 # Set matploblib style
-plt.style.use('seaborn-colorblind')
+plt.style.use("seaborn-colorblind")
 # colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-plt.rcParams['figure.dpi'] = 450
-plt.rcParams['savefig.transparent'] = True
-plt.rcParams['savefig.format'] = 'svg'
+plt.rcParams["figure.dpi"] = 450
+plt.rcParams["savefig.transparent"] = True
+plt.rcParams["savefig.format"] = "svg"
 
 # # Reset params if needed
 # plt.rcParams.update(mpl.rcParamsDefault)
@@ -61,7 +62,7 @@ plt.rcParams['savefig.format'] = 'svg'
 # ------------------- Organization ------------------------------------------ #
 
 
-DATA_DIR = pathlib.Path('data/')
+DATA_DIR = pathlib.Path("data/")
 SEED = 43
 torch.manual_seed(SEED)
 np.random.seed(SEED)
@@ -70,8 +71,8 @@ np.random.seed(SEED)
 # ------------------- Read and prep data ------------------------------------ #
 
 
-train_data = np.load(DATA_DIR.joinpath('train.npy'))
-test_data = np.load(DATA_DIR.joinpath('test.npy'))
+train_data = np.load(DATA_DIR.joinpath("train.npy"))
+test_data = np.load(DATA_DIR.joinpath("test.npy"))
 
 x_train = train_data[:, 1:]
 y_train = train_data[:, 0]
@@ -125,8 +126,7 @@ class Dataset(torch.utils.data.TensorDataset):
 class NeuralNet(nn.Module):
     """Neural Network class."""
 
-    def __init__(self, input_dims=287, activation=nn.ReLU(),
-                 dropout=nn.Dropout(p=0.5)):
+    def __init__(self, input_dims=287, activation=nn.ReLU(), dropout=nn.Dropout(p=0.5)):
         """Initialize as subclass of nn.Module, inherit its methods."""
         super(NeuralNet, self).__init__()
 
@@ -188,8 +188,7 @@ def train_step(model, features, targets, optimizer, loss_fn):
     return loss, output
 
 
-def train_network(model, train_data, val_data, optimizer, loss_fn,
-                  n_epochs=300, patience=20, print_progress=True):
+def train_network(model, train_data, val_data, optimizer, loss_fn, n_epochs=300, patience=20, print_progress=True):
     """Train a neural network model."""
     # Initalize loss as very high
     best_loss = 1e8
@@ -207,8 +206,7 @@ def train_network(model, train_data, val_data, optimizer, loss_fn,
         model.train()
         for bidx, (features, targets) in enumerate(train_data):
             # Calculate loss and predictions
-            loss, predictions = train_step(model, features, targets,
-                                           optimizer, loss_fn)
+            loss, predictions = train_step(model, features, targets, optimizer, loss_fn)
             epoch_loss += loss
 
         # Save train epoch loss
@@ -234,14 +232,13 @@ def train_network(model, train_data, val_data, optimizer, loss_fn,
 
             # Check early stopping condition
             if epochs_no_improve == patience:
-                print(f'Stopping after {epoch} epochs due to no improvement.')
+                print(f"Stopping after {epoch} epochs due to no improvement.")
                 model.load_state_dict(best_model)
                 break
         # Print progress at set epoch intervals if desired
-        if print_progress:
-            if (epoch + 1) % 5 == 0:
-                print(f'Epoch {epoch+1} Train Loss: {epoch_loss:.4}, ', end='')
-                print(f'Val Loss: {val_epoch_loss:.4}')
+        if print_progress and (epoch + 1) % 5 == 0:
+            print(f"Epoch {epoch+1} Train Loss: {epoch_loss:.4}, ", end="")
+            print(f"Val Loss: {val_epoch_loss:.4}")
 
     return train_loss, val_loss
 
@@ -266,9 +263,19 @@ n_splits = 5
 patience = 100
 
 
-def k_fold_cv_train(X=x_train, y=y_train, model=model, optimizer=optimizer,
-                    loss_fn=loss_fn, n_splits=5, batch_size=batch_size,
-                    n_epochs=500, patience=100, shuffle=True, rng=SEED):
+def k_fold_cv_train(
+    X=x_train,
+    y=y_train,
+    model=model,
+    optimizer=optimizer,
+    loss_fn=loss_fn,
+    n_splits=5,
+    batch_size=batch_size,
+    n_epochs=500,
+    patience=100,
+    shuffle=True,
+    rng=SEED,
+):
     """Train a NN with K-Fold cross-validation."""
     kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=rng)
     best_losses = []
@@ -284,21 +291,21 @@ def k_fold_cv_train(X=x_train, y=y_train, model=model, optimizer=optimizer,
         y_val_fold = y_train[val_index]
 
         train = Dataset(x_train_fold, y_train_fold)
-        train_loader = DataLoader(train, batch_size=batch_size,
-                                  shuffle=shuffle, drop_last=True)
+        train_loader = DataLoader(train, batch_size=batch_size, shuffle=shuffle, drop_last=True)
         # Create val dataset and dataloader
         val = Dataset(x_val_fold, y_val_fold)
-        val_loader = DataLoader(val, batch_size=batch_size,
-                                shuffle=False, drop_last=True)
+        val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, drop_last=True)
 
         # Train
-        train_loss, val_loss = train_network(model=model,
-                                             train_data=train_loader,
-                                             val_data=val_loader,
-                                             optimizer=optimizer,
-                                             loss_fn=loss_fn,
-                                             n_epochs=n_epochs,
-                                             patience=patience)
+        train_loss, val_loss = train_network(
+            model=model,
+            train_data=train_loader,
+            val_data=val_loader,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            n_epochs=n_epochs,
+            patience=patience,
+        )
         best_losses.append(val_loss)
         model.apply(weight_reset)
 
@@ -326,8 +333,8 @@ avg_loss = np.mean([np.min(x) for x in kf_train[0]])
 
 
 plt.figure()
-plt.plot(kf_train[1], linewidth=2, label='Train Loss')
-plt.plot(kf_train[2], linewidth=2, label='Val Loss')
+plt.plot(kf_train[1], linewidth=2, label="Train Loss")
+plt.plot(kf_train[2], linewidth=2, label="Val Loss")
 plt.grid()
 # plt.yscale('log')
 plt.legend()

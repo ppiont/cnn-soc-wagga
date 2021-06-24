@@ -23,16 +23,17 @@ from skopt.plots import plot_objective, plot_convergence, plot_evaluations
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
+
+# import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import copy
-import pdb  # Brug det
+
+# import pdb  # Brug det
 
 
 # Custom imports
-from feat_eng.funcs import add_min, safe_log  # , get_corr_feats, min_max
-from custom_metrics.metrics import (mean_error, lin_ccc,
-                                    model_efficiency_coefficient)
+# from feat_eng.funcs import add_min, safe_log, get_corr_feats, min_max
+from custom_metrics.metrics import mean_error, lin_ccc, model_efficiency_coefficient
 
 # ------------------- TO DO ------------------------------------------------- #
 
@@ -46,11 +47,11 @@ Use Torch Dataset.. you made a class for it dummy
 
 
 # Set matploblib style
-plt.style.use('seaborn-colorblind')
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-plt.rcParams['figure.dpi'] = 450
-plt.rcParams['savefig.transparent'] = True
-plt.rcParams['savefig.format'] = 'svg'
+plt.style.use("seaborn-colorblind")
+colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+plt.rcParams["figure.dpi"] = 450
+plt.rcParams["savefig.transparent"] = True
+plt.rcParams["savefig.format"] = "svg"
 
 # Reset params if needed
 # plt.rcParams.update(mpl.rcParamsDefault)
@@ -59,7 +60,7 @@ plt.rcParams['savefig.format'] = 'svg'
 # ------------------- Organization ------------------------------------------ #
 
 
-DATA_DIR = pathlib.Path('data/')
+DATA_DIR = pathlib.Path("data/")
 
 
 def seed_everything(SEED=43):
@@ -69,7 +70,7 @@ def seed_everything(SEED=43):
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
     torch.backends.cudnn.deterministic = True
-    os.environ['PYTHONHASHSEED']=str(SEED)
+    os.environ["PYTHONHASHSEED"] = str(SEED)
     # torch.backends.cudnn.benchmark = False
 
 
@@ -80,8 +81,8 @@ seed_everything(SEED=SEED)
 # ------------------- Read and prep data ------------------------------------ #
 
 
-train_data = np.load(DATA_DIR.joinpath('train_new.npy'))
-test_data = np.load(DATA_DIR.joinpath('test_new.npy'))
+train_data = np.load(DATA_DIR.joinpath("train_new.npy"))
+test_data = np.load(DATA_DIR.joinpath("test_new.npy"))
 
 x_train = train_data[:, 3:]
 y_train = train_data[:, 0]
@@ -89,7 +90,7 @@ y_train = train_data[:, 0]
 x_test = test_data[:, 3:]
 y_test = test_data[:, 0]
 
-input_dims=x_train.shape[-1]
+input_dims = x_train.shape[-1]
 
 # Normalize X
 scaler_x = MinMaxScaler()
@@ -109,6 +110,7 @@ y_train = scaler_y.fit_transform(y_train.reshape(-1, 1))
 # x_test, y_test = torch.from_numpy(x_test), torch.from_numpy(y_test)
 
 #%%
+
 
 class Dataset(torch.utils.data.TensorDataset):
     """Characterize a PyTorch Dataset."""
@@ -135,11 +137,11 @@ class Dataset(torch.utils.data.TensorDataset):
 
 # ------------------- NN setup ---------------------------------------------- #
 
+
 class NeuralNet(nn.Module):
     """Neural Network class."""
 
-    def __init__(self, input_dims=input_dims, n_layers=3, n_neurons=64,
-                 activation=nn.ELU(), dropout_rate=0.5):
+    def __init__(self, input_dims=input_dims, n_layers=3, n_neurons=64, activation=nn.ELU(), dropout_rate=0.5):
         """Initialize as subclass of nn.Module, inherit its methods."""
         super(NeuralNet, self).__init__()
 
@@ -162,10 +164,10 @@ class NeuralNet(nn.Module):
 
     def forward(self, x):
         """Forward pass."""
-                
+
         x = self.batchnorm(self.activation(self.dropout(self.in_layer(x))))
 
-        for i in range(self.n_layers-1):
+        for _ in range(self.n_layers - 1):
             x = self.batchnorm(self.activation(self.dropout(self.dense(x))))
 
         x = self.out_layer(x)
@@ -193,8 +195,7 @@ def train_step(model, features, targets, optimizer, loss_fn):
     return loss, output
 
 
-def train_network(model, train_data, val_data, optimizer, loss_fn,
-                  n_epochs=2000, patience=100, print_progress=True):
+def train_network(model, train_data, val_data, optimizer, loss_fn, n_epochs=2000, patience=100, print_progress=True):
     """Train a neural network model."""
     # Initalize loss as very high
     best_loss = 1e8
@@ -205,7 +206,7 @@ def train_network(model, train_data, val_data, optimizer, loss_fn,
     # Init epochs_no_improve
     epochs_no_improve = 0
     # best_model = copy.deepcopy(model.state_dict())
-    
+
     # Start training (loop over epochs)
     for epoch in range(n_epochs):
 
@@ -215,8 +216,7 @@ def train_network(model, train_data, val_data, optimizer, loss_fn,
         model.train()  # set model to training mode for training
         for bidx, (features, targets) in enumerate(train_data):
             # Calculate loss and predictions
-            loss, predictions = train_step(model, features, targets,
-                                           optimizer, loss_fn)
+            loss, predictions = train_step(model, features, targets, optimizer, loss_fn)
             train_epoch_loss += loss
         # Save train epoch loss
         train_loss.append(train_epoch_loss.item())
@@ -241,14 +241,13 @@ def train_network(model, train_data, val_data, optimizer, loss_fn,
 
             # Check early stopping condition
             if epochs_no_improve == patience:
-                print(f'Stopping after {epoch} epochs due to no improvement.')
+                print(f"Stopping after {epoch} epochs due to no improvement.")
                 model.load_state_dict(best_model)
                 break
         # Print progress at set epoch intervals if desired
-        if print_progress:
-            if (epoch + 1) % 10 == 0:
-                print(f'Epoch {epoch+1} Train Loss: {train_epoch_loss:.4}, ', end='')
-                print(f'Val Loss: {val_epoch_loss:.4}')
+        if print_progress and (epoch + 1) % 10 == 0:
+            print(f"Epoch {epoch+1} Train Loss: {train_epoch_loss:.4}, ", end="")
+            print(f"Val Loss: {val_epoch_loss:.4}")
 
     return train_loss, val_loss
 
@@ -259,12 +258,24 @@ def weight_reset(m):
     if callable(reset_parameters):
         m.reset_parameters()
 
+
 #%%
 # ------------------- Cross-validation -------------------------------------- #
 
-def kfold_cv_train(x_train, y_train, model, optimizer,loss_fn=nn.MSELoss(), 
-                   n_splits=5, batch_size=312, n_epochs=2000, patience=100,
-                   shuffle=True, rng=SEED):
+
+def kfold_cv_train(
+    x_train,
+    y_train,
+    model,
+    optimizer,
+    loss_fn=nn.MSELoss(),
+    n_splits=5,
+    batch_size=312,
+    n_epochs=2000,
+    patience=100,
+    shuffle=True,
+    rng=SEED,
+):
     """Train a NN with K-Fold cross-validation."""
     kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=rng)
     best_losses = []
@@ -280,26 +291,26 @@ def kfold_cv_train(x_train, y_train, model, optimizer,loss_fn=nn.MSELoss(),
         y_val_fold = y_train[val_index]
 
         train = Dataset(x_train_fold, y_train_fold)
-        train_loader = DataLoader(train, batch_size=batch_size,
-                                  shuffle=shuffle, drop_last=True)
+        train_loader = DataLoader(train, batch_size=batch_size, shuffle=shuffle, drop_last=True)
         # Create val dataset and dataloader
         val = Dataset(x_val_fold, y_val_fold)
-        val_loader = DataLoader(val, batch_size=batch_size,
-                                shuffle=False, drop_last=False)
+        val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, drop_last=False)
 
         # Train
-        train_loss, val_loss = train_network(model=model,
-                                             train_data=train_loader,
-                                             val_data=val_loader,
-                                             optimizer=optimizer,
-                                             loss_fn=loss_fn,
-                                             n_epochs=n_epochs,
-                                             patience=patience,
-                                             print_progress=True)
+        train_loss, val_loss = train_network(
+            model=model,
+            train_data=train_loader,
+            val_data=val_loader,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            n_epochs=n_epochs,
+            patience=patience,
+            print_progress=True,
+        )
         best_losses.append(min(val_loss))
         model.apply(weight_reset)
 
-    return sum(best_losses)/n_splits, train_loss, val_loss
+    return sum(best_losses) / n_splits, train_loss, val_loss
 
 
 #%%
@@ -319,67 +330,62 @@ class tqdm_skopt(object):
 
 
 # Set parameter search space
+# sourcery skip: merge-list-append
 space = []
 # space.append(Categorical(['relu', 'leakyrelu', 'elu'], name='activation'))
-space.append(Real(1e-5, 1e-1, name='learning_rate'))
-space.append(Real(1e-10, 1e-1, name='regularization'))
-space.append(Real(0.0, 0.9, name='dropout_rate'))
-space.append(Integer(int(32), int(312), name='batch_size', dtype=int))
-space.append(Categorical(['relu', 'leakyrelu', 'prelu', 'elu', 'selu'], name='activation'))
-space.append(Integer(int(1), int(5), name='n_layers', dtype=int))
-space.append(Integer(int(16), int(512), name='n_neurons', dtype=int))
+space.append(Real(1e-5, 1e-1, name="learning_rate"))
+space.append(Real(1e-10, 1e-1, name="regularization"))
+space.append(Real(0.0, 0.9, name="dropout_rate"))
+space.append(Integer(int(32), int(312), name="batch_size", dtype=int))
+space.append(Categorical(["relu", "leakyrelu", "prelu", "elu", "selu"], name="activation"))
+space.append(Integer(int(1), int(5), name="n_layers", dtype=int))
+space.append(Integer(int(16), int(512), name="n_neurons", dtype=int))
 
 # Set default hyperparameters
-default_params = [1e-3,
-                  1e-5,
-                  0.5,
-                  312,
-                  'elu',
-                  3,
-                  256]
+default_params = [1e-3, 1e-5, 0.5, 312, "elu", 3, 256]
 
 
 # Work in progress
 @use_named_args(dimensions=space)
-def fitness(learning_rate, regularization, dropout_rate, batch_size, activation,
-            n_layers, n_neurons):
+def fitness(learning_rate, regularization, dropout_rate, batch_size, activation, n_layers, n_neurons):
     """Perform Bayesian Hyperparameter tuning."""
 
-    if activation == 'relu':
+    if activation == "relu":
         activation = nn.ReLU()
-    elif activation == 'leakyrelu':
+    elif activation == "leakyrelu":
         activation = nn.LeakyReLU()
-    elif activation == 'elu':
+    elif activation == "elu":
         activation = nn.ELU()
-    elif activation == 'selu':
+    elif activation == "selu":
         activation = nn.SELU()
-    elif activation == 'prelu':
+    elif activation == "prelu":
         activation = nn.PReLU()
 
     # print(f'Learning Rate: {learning_rate:.0e}, Regularization: {regularization:.0e}, ', end='')
     # print(f'Dropout: {dropout:.2f}')  #, Batch Size: {batch_size}')
 
-    model = NeuralNet(activation=activation, dropout_rate=dropout_rate,
-                      n_layers=n_layers, n_neurons=n_neurons)
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
-                                                weight_decay=regularization)
+    model = NeuralNet(activation=activation, dropout_rate=dropout_rate, n_layers=n_layers, n_neurons=n_neurons)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=regularization)
     # Create k-fold cross validation
-    avg_best_loss, *_ = kfold_cv_train(x_train=x_train, y_train=y_train,
-                                     model=model, optimizer=optimizer,
-                                     batch_size=batch_size)
+    avg_best_loss, *_ = kfold_cv_train(
+        x_train=x_train, y_train=y_train, model=model, optimizer=optimizer, batch_size=batch_size
+    )
     # print(f'Avg. best validation loss: {sum(best_losses)/n_splits}')
 
     return avg_best_loss
 
+
 n_calls = 200
 # Hyperparemeter search using Gaussian process minimization
-gp_result = gp_minimize(func=fitness,
-                        x0=default_params,
-                        dimensions=space,
-                        n_calls=n_calls,
-                        random_state=SEED,
-                        verbose=True, callback=[tqdm_skopt(total=n_calls,
-                                          desc='Gaussian Process')])
+gp_result = gp_minimize(
+    func=fitness,
+    x0=default_params,
+    dimensions=space,
+    n_calls=n_calls,
+    random_state=SEED,
+    verbose=True,
+    callback=[tqdm_skopt(total=n_calls, desc="Gaussian Process")],
+)
 
 plot_convergence(gp_result)
 plot_objective(gp_result)
@@ -412,34 +418,38 @@ activation = nn.ELU()
 n_epochs = 2000
 patience = 100
 
-X_train, X_val, y_train, y_val = train_test_split(x_train, y_train,
-                                            test_size=0.1, random_state=SEED)
+X_train, X_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=SEED)
 
 train = Dataset(X_train, y_train)
-train_loader = DataLoader(train, batch_size=batch_size,
-                             shuffle=True, drop_last=False, num_workers=2)
+train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=2)
 
 val = Dataset(X_val, y_val)
-val_loader = DataLoader(val, batch_size=batch_size,
-                        shuffle=False, drop_last=False, num_workers=2)
+val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=2)
 
 model = NeuralNet(activation=activation, dropout_rate=dropout_rate)
 optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=regu)
 loss_fn = nn.MSELoss()
 
 # Run training
-result = train_network(model, train_data=train_loader, val_data=val_loader, 
-                       optimizer=optimizer, loss_fn=loss_fn,
-                       n_epochs=n_epochs, patience=patience, print_progress=True)
+result = train_network(
+    model,
+    train_data=train_loader,
+    val_data=val_loader,
+    optimizer=optimizer,
+    loss_fn=loss_fn,
+    n_epochs=n_epochs,
+    patience=patience,
+    print_progress=True,
+)
 
 model.eval()
 pred = model(torch.Tensor(x_test)).detach().numpy()
 
 plt.figure()
-plt.plot(result[0], linewidth=2, label='Train Loss')
-plt.plot(result[1], linewidth=2, label='Val Loss')
+plt.plot(result[0], linewidth=2, label="Train Loss")
+plt.plot(result[1], linewidth=2, label="Val Loss")
 plt.grid()
-plt.yscale('log')
+plt.yscale("log")
 plt.legend()
 plt.show()
 
@@ -448,7 +458,6 @@ plt.show()
 # ------------------- Testing ----------------------------------------------- #
 
 
-from sklearn.metrics import mean_squared_error, r2_score
 # Predict on test set and reshape pred and true
 y_pred = np.exp(scaler_y.inverse_transform(model(torch.Tensor(x_test)).detach().numpy().reshape(-1, 1)))
 y_true = np.exp(y_test.reshape(-1, 1))
@@ -466,54 +475,59 @@ ccc = lin_ccc(y_true, y_pred)
 
 fig, ax = plt.subplots(figsize=(8, 8))
 ax.scatter(y_true, y_pred, c=colors[0])
-ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, label='1:1 line', c=colors[1])
-ax.set_xlabel('Actual')
-ax.set_ylabel('Predicted')
+ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, label="1:1 line", c=colors[1])
+ax.set_xlabel("Actual")
+ax.set_ylabel("Predicted")
 # Regression line
 y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
-ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2, label='Trend')
-ax.legend(loc='upper left')
-ax.text(-11, 370,
-        f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
-        va='top', ha='left', linespacing=1.5, snap=True,
-        bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
+ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2, label="Trend")
+ax.legend(loc="upper left")
+ax.text(
+    -11,
+    370,
+    f"MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}",
+    va="top",
+    ha="left",
+    linespacing=1.5,
+    snap=True,
+    bbox={"facecolor": "white", "alpha": 0, "pad": 5},
+)
 plt.tight_layout()
 # plt.savefig('NN_x_x.svg', bbox_inches='tight',
 #             pad_inches=0)
 plt.show()
 
 
-
 # %%
 fig, ax = plt.subplots(figsize=(8, 8))
 ax.scatter(y_true, y_pred, c=colors[0])
-ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, label='1:1 line', c=colors[1])
-ax.set_xlabel('Actual')
-ax.set_ylabel('Predicted')
+ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, label="1:1 line", c=colors[1])
+ax.set_xlabel("Actual")
+ax.set_ylabel("Predicted")
 # Regression line
 y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
-ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2, label='Trend')
-ax.legend(loc='upper left')
-ax.text(-11, 370,
-        f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
-        va='top', ha='left', linespacing=1.5, snap=True,
-        bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
+ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2, label="Trend")
+ax.legend(loc="upper left")
+ax.text(
+    -11,
+    370,
+    f"MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}",
+    va="top",
+    ha="left",
+    linespacing=1.5,
+    snap=True,
+    bbox={"facecolor": "white", "alpha": 0, "pad": 5},
+)
 plt.tight_layout()
 # plt.savefig('RF_x_trees.svg', bbox_inches='tight',
 #             pad_inches=0)
 
- # location for the zoomed portion 
-sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5]) 
+# location for the zoomed portion
+sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5])
 # plot the zoomed portion
-sub_ax.scatter(y_true, y_pred, c=colors[0], s = 10)
-sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, c=colors[1])
-sub_ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2)
+sub_ax.scatter(y_true, y_pred, c=colors[0], s=10)
+sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, c=colors[1])
+sub_ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2)
 sub_ax.set_xlim([0, 60])
 sub_ax.set_ylim([0, 60])
 

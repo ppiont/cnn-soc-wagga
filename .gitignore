@@ -1,6 +1,7 @@
 # Custom
 data/
 optimizers/
+lightning_logs/
 .vscode/
 *.code-workspace
 

@@ -7,11 +7,13 @@ import pathlib
 
 # Imports
 import numpy as np
+
 # import numpy.ma as ma
 # import pandas as pd
 from sklearn.model_selection import KFold, cross_val_score
 from skopt.utils import use_named_args
 from sklearn.preprocessing import MinMaxScaler
+
 # from sklearn.feature_selection import RFECV
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
@@ -19,25 +21,29 @@ from skopt.learning import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from skopt import gp_minimize
 from skopt.space import Integer
-from skopt.plots import plot_objective, plot_evaluations, plot_convergence, plot_objective_2D
+from skopt.plots import (
+    plot_objective,
+    plot_evaluations,
+    plot_convergence,
+    # plot_objective_2D,
+)
 from tqdm import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 # Custom imports
-from custom_metrics.metrics import (mean_error, lin_ccc,
-                                    model_efficiency_coefficient)
+from custom_metrics.metrics import mean_error, lin_ccc, model_efficiency_coefficient
 
 
 # ------------------- Settings ---------------------------------------------- #
 
 
 # Set matploblib style
-plt.style.use('seaborn-colorblind')
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-mpl.rcParams['figure.dpi'] = 450
-mpl.rcParams['savefig.transparent'] = True
-mpl.rcParams['savefig.format'] = 'svg'
+plt.style.use("seaborn-colorblind")
+colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+mpl.rcParams["figure.dpi"] = 450
+mpl.rcParams["savefig.transparent"] = True
+mpl.rcParams["savefig.format"] = "svg"
 
 
 # # Reset params if needed
@@ -47,15 +53,15 @@ mpl.rcParams['savefig.format'] = 'svg'
 # ------------------- Organization ------------------------------------------ #
 
 
-DATA_DIR = pathlib.Path('data/')
+DATA_DIR = pathlib.Path("data/")
 SEED = 43
 
 
 # ------------------- Read and prep data ------------------------------------ #
 
 
-train_data = np.load(DATA_DIR.joinpath('train_45.npy'))
-test_data = np.load(DATA_DIR.joinpath('test_45.npy'))
+train_data = np.load(DATA_DIR.joinpath("train_45.npy"))
+test_data = np.load(DATA_DIR.joinpath("test_45.npy"))
 x_train = train_data[:, 3:]
 y_train = train_data[:, 0]
 x_test = test_data[:, 3:]
@@ -129,8 +135,7 @@ class tqdm_skopt(object):
 #%%
 
 # Define estimator
-estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1,
-                                  random_state=SEED)
+estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=SEED)
 
 # Define cross-validation
 cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
@@ -138,11 +143,10 @@ cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
 # Define search space
 n_features = x_train.shape[-1]
 
-space = []
-space.append(Integer(1, n_features, name='max_features'))
-space.append(Integer(1, 200, name='max_depth'))
-space.append(Integer(2, 100, name='min_samples_split'))
-space.append(Integer(1, 200, name='min_samples_leaf'))
+space = [Integer(1, n_features, name="max_features")]
+space.append(Integer(1, 200, name="max_depth"))
+space.append(Integer(2, 100, name="min_samples_split"))
+space.append(Integer(1, 200, name="min_samples_leaf"))
 
 
 @use_named_args(space)
@@ -151,23 +155,22 @@ def objective(**params):
     # Set hyperparameters from space decorator
     estimator.set_params(**params)
 
-    return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv,
-                                    n_jobs=-1,
-                                    scoring="neg_mean_squared_error"))
+    return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv, n_jobs=-1, scoring="neg_mean_squared_error",))
 
 
 n_calls = 200
-res_gp = gp_minimize(objective, space, n_calls=n_calls,
-                     random_state=SEED,
-                     callback=[tqdm_skopt(total=n_calls,
-                                          desc='Gaussian Process')])
+res_gp = gp_minimize(
+    objective, space, n_calls=n_calls, random_state=SEED, callback=[tqdm_skopt(total=n_calls, desc="Gaussian Process")],
+)
 
 
-print(f'''Best parameters:
+print(
+    f"""Best parameters:
 - max_features={res_gp.x[0]}
 - max_depth={res_gp.x[1]}
 - min_samples_split={res_gp.x[2]}
-- min_samples_leaf={res_gp.x[3]}''')
+- min_samples_leaf={res_gp.x[3]}"""
+)
 
 # - max_features=8
 # - max_depth=104
@@ -178,12 +181,10 @@ plot_convergence(res_gp)
 plot_evaluations(res_gp)
 plot_objective(res_gp)
 
-
 # ------------------- Training ---------------------------------------------- #
 #%%
 
-rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1, random_state=SEED,
-                           criterion='mse', verbose=2, oob_score=True)
+rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1, random_state=SEED, criterion="mse", verbose=2, oob_score=True,)
 rf.fit(x_train, y_train)
 
 
@@ -208,31 +209,39 @@ ccc = lin_ccc(y_true, y_pred)
 
 fig, ax = plt.subplots(figsize=(8, 8))
 ax.scatter(y_true, y_pred, c=colors[0])
-ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, label='1:1 line', c=colors[1])
-ax.set_xlabel('Actual')
-ax.set_ylabel('Predicted')
+ax.plot(
+    [y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, label="1:1 line", c=colors[1],
+)
+ax.set_xlabel("Actual")
+ax.set_ylabel("Predicted")
 # Regression line
 y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
-ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2, label='Trend')
-ax.legend(loc='upper left')
-ax.text(-11, 370,
-        f'MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}',
-        va='top', ha='left', linespacing=1.5, snap=True,
-        bbox={'facecolor': 'white', 'alpha': 0, 'pad': 5})
+ax.plot(
+    y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2, label="Trend",
+)
+ax.legend(loc="upper left")
+ax.text(
+    -11,
+    370,
+    f"MSE: {mse:.3f}\nME:  {me:.3f}\nMEC: {mec:.3f}\nCCC: {ccc:.3f}",
+    va="top",
+    ha="left",
+    linespacing=1.5,
+    snap=True,
+    bbox={"facecolor": "white", "alpha": 0, "pad": 5},
+)
 plt.tight_layout()
 # plt.savefig('RF_x_trees.svg', bbox_inches='tight',
 #             pad_inches=0)
 
- # location for the zoomed portion 
-sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5]) 
+# location for the zoomed portion
+sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5])
 # plot the zoomed portion
-sub_ax.scatter(y_true, y_pred, c=colors[0], s = 10)
-sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()],
-        '--', lw=2, c=colors[1])
-sub_ax.plot(y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
-        c=colors[2], lw=2)
+sub_ax.scatter(y_true, y_pred, c=colors[0], s=10)
+sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, c=colors[1])
+sub_ax.plot(
+    y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2,
+)
 sub_ax.set_xlim([0, 60])
 sub_ax.set_ylim([0, 60])
 

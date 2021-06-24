@@ -9,35 +9,78 @@ import numpy as np
 import numpy.ma as ma
 import geopandas as gpd
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
-                 
+
 # Custom imports
 from feat_eng.funcs import add_min, safe_log  # , highlight_corr_idx
 
 # ------------------- Organization ------------------------------------------ #
 
 
-DATA_DIR = pathlib.Path('data/')
+DATA_DIR = pathlib.Path("data/")
 SEED = 43
 
 
 # ------------------- Read and prep data ------------------------------------ #
 
-
 # Load target data
-target_data = gpd.read_file(DATA_DIR.joinpath('targets/germany_targets.geojson'),
-                            driver='GeoJSON')
+target_data = gpd.read_file(DATA_DIR.joinpath("targets/germany_targets.geojson"), driver="GeoJSON")
 # Get target array
-targets = target_data[['OC', 'GPS_LAT', 'GPS_LONG']].to_numpy()
+targets = target_data[["OC", "GPS_LAT", "GPS_LONG"]].to_numpy()
 # Load feature array
-features = np.load(DATA_DIR.joinpath('raw_features.npy'))
+features = np.load(DATA_DIR.joinpath("raw_features.npy"))
 # Get the center pixel (along axes=(1, 2)) (for RF/MLP)
-features = features[:, features.shape[1]//2, features.shape[2]//2, :]
+features = features[:, features.shape[1] // 2, features.shape[2] // 2, :]
 # select subset of features
-features = features[:, [59, 84, 85, 110, 111, 112, 113, 114, 115, 116, 117, 118,
-                        123, 124, 125, 126, 155, 156, 157, 330, 331, 332, 333,
-                        334, 335, 336, 340, 342, 353, 355, 357, 359, 387, 389,
-                        390, 392, 394, 396, 398, 400, 402, 403, 404, 405, 406]]
+features = features[
+    :,
+    [
+        59,
+        84,
+        85,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        123,
+        124,
+        125,
+        126,
+        155,
+        156,
+        157,
+        330,
+        331,
+        332,
+        333,
+        334,
+        335,
+        336,
+        340,
+        342,
+        353,
+        355,
+        357,
+        359,
+        387,
+        389,
+        390,
+        392,
+        394,
+        396,
+        398,
+        400,
+        402,
+        403,
+        404,
+        405,
+        406,
+    ],
+]
 
 features = features.astype(np.float32)
 # lowest val as nan
@@ -50,9 +93,7 @@ inds = np.where(np.isnan(features))
 features[inds] = np.take(col_mean, inds[1])
 
 # Split into train and test data
-x_train, x_test, y_train, y_test = train_test_split(features, targets,
-                                                    test_size=0.2,
-                                                    random_state=SEED)
+x_train, x_test, y_train, y_test = train_test_split(features, targets, test_size=0.2, random_state=SEED)
 #%%
 
 # # Remove outliers
@@ -64,7 +105,6 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
 # y_train = y_train[~mask.mask]
 
 
-
 # Shift values to remove negatives (CNN)
 # am = np.min(x_train, axis=(0,1,2), keepdims=True)
 
@@ -72,7 +112,6 @@ x_train, x_test, y_train, y_test = train_test_split(features, targets,
 # shift[am>=0] = 0
 # shift
 # x_train += shift
-
 
 
 # Shift values to remove negatives
@@ -108,8 +147,8 @@ train = np.hstack((y_train, x_train))
 test = np.hstack((y_test, x_test))
 
 # Save data
-np.save(DATA_DIR.joinpath('train_45.npy'), train)
-np.save(DATA_DIR.joinpath('test_45.npy'), test)
+np.save(DATA_DIR.joinpath("train_45.npy"), train)
+np.save(DATA_DIR.joinpath("test_45.npy"), test)
 
 
 # %%
