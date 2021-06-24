@@ -178,7 +178,7 @@ class SoilCNN(pl.LightningModule):
         # self.val_r2 = R2Score()
 
     def forward(self, x):
-        return self.layers(x).squeeze()  # prediction
+        return self.layers(x)  # prediction
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
@@ -225,6 +225,8 @@ data.setup()
 batch = next(iter(data.train_dataloader()))
 model.train()
 model.forward(batch["features"])
+
+#%%
 
 early_stopping = EarlyStopping("val_loss", patience=50, mode="min")
 trainer = Trainer(callbacks=[early_stopping])
