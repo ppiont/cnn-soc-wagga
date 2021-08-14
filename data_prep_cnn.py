@@ -75,7 +75,7 @@ features = features.astype(np.float32)
 # lowest val as nan
 features[features == -32768] = np.nan
 # get col means for imputation
-col_mean = np.nanmean(features, axis=(0, 1, 2), keepdims=True)
+col_mean = np.nanmedian(features, axis=(0, 1, 2), keepdims=True)
 # get nan indices
 inds = np.where(np.isnan(features))
 # replace nan with col mean

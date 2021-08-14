@@ -34,7 +34,6 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
 from ray.tune.integration.pytorch_lightning import TuneReportCallback, TuneReportCheckpointCallback
 
-from pytorch_model_summary import summary
 
 # Custom imports
 # from feat_eng.funcs import add_min, safe_log, get_corr_feats, min_max
@@ -177,33 +176,27 @@ class DataModule(pl.LightningDataModule):
 
 
 class SoilCNN(pl.LightningModule):
-    def __init__(self, lr=0.00154911167419):
+    def __init__(self, config):
         super().__init__()
 
-        self.lr = lr
+        self.lr = config["lr"]
+        self.l1_size = config["l1_size"]
+        self.l2_size = config["l2_size"]
+        self.l3_size = config["l3_size"]
 
-        self.conv1 = nn.Conv2d(43, 64, 3, padding="same")  # stride i stedet for maxpool
+        self.conv1 = nn.Conv2d(43, self.l1_size, 3, padding="same")
         self.relu = nn.ReLU()
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(self.l1_size)
         # self.pool1 = nn.MaxPool2d(2)
-        self.conv2 = nn.Conv2d(64, 128, 2, padding="same")
-        self.bn2 = nn.BatchNorm2d(128)
+        self.conv2 = nn.Conv2d(self.l1_size, self.l2_size, 2, padding="same")
+        self.bn2 = nn.BatchNorm2d(self.l2_size)
         self.pool2 = nn.MaxPool2d(2)
         self.flat = nn.Flatten()
-        # self.fc1 = nn.LazyLinear(128)
-        self.fc1 = nn.Linear(1152, 128)
-        self.bn3 = nn.BatchNorm1d(128)
-        # extra linear
-        self.fc2 = nn.Linear(128, 1)
-
-        # hyperparams to tune
-        # learning rate, regularization, channels, filter size, hidden linear 1, hidden linear 2
-
-        # self.train_r2 = R2Score()
-        # self.val_r2 = R2Score()
+        self.fc1 = nn.LazyLinear(self.l3_size)
+        self.bn3 = nn.BatchNorm1d(self.l3_size)
+        self.fc2 = nn.Linear(self.l3_size, 1)
 
     def forward(self, x):
-
         x = self.conv1(x)
         x = self.relu(x)
         x = self.bn1(x)
@@ -216,10 +209,6 @@ class SoilCNN(pl.LightningModule):
         x = self.relu(x)
         x = self.bn3(x)
         x = self.fc2(x)
-
-        # out = self.pool1(self.bn1(self.relu(self.conv1(x))))
-        # out = self.bn2(self.relu(self.conv2(out)))
-        # out = self.fc2(self.bn3(self.relu(self.fc1(self.flat(out)))))
         return x  # prediction
 
     def configure_optimizers(self):
@@ -257,8 +246,8 @@ class SoilCNN(pl.LightningModule):
 
 
 #%%
-data = DataModule(DATA_DIR.joinpath("cnn_features.npy"), DATA_DIR.joinpath("cnn_targets.npy"))
-model = SoilCNN()
+# data = DataModule(DATA_DIR.joinpath("cnn_features.npy"), DATA_DIR.joinpath("cnn_targets.npy"))
+# model = SoilCNN()
 
 # data.prepare_data()
 # data.setup()
@@ -266,15 +255,81 @@ model = SoilCNN()
 # model.train()
 # model.forward(batch["features"])
 
-print(summary(model, torch.zeros((1, 43, 15, 15)), show_input=False))
+# #%%
+# early_stopping = EarlyStopping("val_loss", patience=100, mode="min")
+tune_callback = TuneReportCallback({"loss": "val_loss"}, on="validation_end")
+# trainer = Trainer(
+#     callbacks=[early_stopping],
+#     deterministic=True,
+#     # auto_lr_find=True,
+#     logger=TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version="."),
+#     progress_bar_refresh_rate=0,
+# )
+# # trainer.tune(model)
+
+# #%%
+# trainer.fit(model, datamodule=data)
+
 
 #%%
-early_stopping = EarlyStopping("val_loss", patience=50, mode="min")
-trainer = Trainer(callbacks=[early_stopping], deterministic=True, auto_lr_find=True)
-# trainer.tune(model)
+def train_tune(config, num_epochs=100, num_gpus=0):
+    data = DataModule(
+        "/home/peterp/GDrive/Thesis/cnn-soc-wagga/data/cnn_features.npy",
+        "/home/peterp/GDrive/Thesis/cnn-soc-wagga/data/cnn_targets.npy",
+        batch_size=config["batch_size"],
+    )
+    model = SoilCNN(config=config)
+    trainer = Trainer(
+        max_epochs=num_epochs,
+        gpus=num_gpus,
+        callbacks=[tune_callback],
+        logger=TensorBoardLogger(save_dir=tune.get_trial_dir(), name="", version="."),
+        progress_bar_refresh_rate=0,
+    )
 
-#%%
-trainer.fit(model, datamodule=data)
+    # Necessary to call forward to initialize parameters for LazyLinear
+    data.prepare_data()
+    data.setup()
+    batch = next(iter(data.train_dataloader()))
+    model.train()
+    model.forward(batch["features"])
+
+    trainer.fit(model, datamodule=data)
+
+
+def tuner(num_samples=50, num_epochs=150, gpus_per_trial=0):
+    config = {
+        "l1_size": tune.choice([8, 16, 32, 64, 128]),
+        "l2_size": tune.choice([8, 16, 32, 64, 128]),
+        "l3_size": tune.choice([8, 16, 32, 64, 128]),
+        "lr": tune.loguniform(1e-4, 1e-1),
+        "batch_size": tune.choice([32, 64, 128, 256]),
+    }
+
+    scheduler = ASHAScheduler(max_t=num_epochs, grace_period=15, reduction_factor=2)
+
+    reporter = CLIReporter(
+        parameter_columns=["l1_size", "l2_size", "l3_size", "lr"],
+        metric_columns=["val_loss", "training_iteration"],
+    )
+
+    analysis = tune.run(
+        tune.with_parameters(train_tune, num_epochs=num_epochs, num_gpus=gpus_per_trial),
+        resources_per_trial={"cpu": 4, "gpu": gpus_per_trial},
+        metric="loss",
+        mode="min",
+        config=config,
+        num_samples=num_samples,
+        scheduler=scheduler,
+        progress_reporter=reporter,
+        name="tune_CNN",
+    )
+
+    print("Best hyperparameters found were: ", analysis.best_config)
+
+
+tuner()
+
 
 #%%
 trainer.validate(model, datamodule=data)

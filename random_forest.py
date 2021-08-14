@@ -9,7 +9,7 @@ import pathlib
 import numpy as np
 
 # import numpy.ma as ma
-# import pandas as pd
+import pandas as pd
 from sklearn.model_selection import KFold, cross_val_score
 from skopt.utils import use_named_args
 from sklearn.preprocessing import MinMaxScaler
@@ -30,6 +30,9 @@ from skopt.plots import (
 from tqdm import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import lime
+import lime.lime_tabular
+
 
 # Custom imports
 from custom_metrics.metrics import mean_error, lin_ccc, model_efficiency_coefficient
@@ -62,6 +65,7 @@ SEED = 43
 
 train_data = np.load(DATA_DIR.joinpath("train_45.npy"))
 test_data = np.load(DATA_DIR.joinpath("test_45.npy"))
+
 x_train = train_data[:, 3:]
 y_train = train_data[:, 0]
 x_test = test_data[:, 3:]
@@ -72,6 +76,8 @@ scaler_x = MinMaxScaler()
 scaler_x.fit(x_train)
 x_train = scaler_x.transform(x_train)
 x_test = scaler_x.transform(x_test)
+
+
 
 # Normalize y
 scaler_y = MinMaxScaler()
@@ -134,57 +140,78 @@ class tqdm_skopt(object):
 # ------------------- RF Hyperparameter Optimization ------------------------ #
 #%%
 
-# Define estimator
-estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=SEED)
+# # Define estimator
+# estimator = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=SEED)
 
-# Define cross-validation
-cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
+# # Define cross-validation
+# cv = KFold(n_splits=5, shuffle=True, random_state=SEED)
 
-# Define search space
-n_features = x_train.shape[-1]
+# # Define search space
+# n_features = x_train.shape[-1]
 
-space = [Integer(1, n_features, name="max_features")]
-space.append(Integer(1, 200, name="max_depth"))
-space.append(Integer(2, 100, name="min_samples_split"))
-space.append(Integer(1, 200, name="min_samples_leaf"))
+# max_depth = 200
 
-
-@use_named_args(space)
-def objective(**params):
-    """Return objective function score for estimator."""
-    # Set hyperparameters from space decorator
-    estimator.set_params(**params)
-
-    return -np.mean(cross_val_score(estimator, x_train, y_train, cv=cv, n_jobs=-1, scoring="neg_mean_squared_error",))
+# space = [Integer(1, n_features, name="max_features")]
+# # space.append(Integer(1, max_depth, name="max_depth"))
+# space.append(Integer(2, 50, name="min_samples_split"))
+# space.append(Integer(1, 50, name="min_samples_leaf"))
 
 
-n_calls = 200
-res_gp = gp_minimize(
-    objective, space, n_calls=n_calls, random_state=SEED, callback=[tqdm_skopt(total=n_calls, desc="Gaussian Process")],
-)
+# @use_named_args(space)
+# def objective(**params):
+#     """Return objective function score for estimator."""
+#     # Set hyperparameters from space decorator
+#     estimator.set_params(**params)
+
+#     return -np.mean(
+#         cross_val_score(
+#             estimator,
+#             x_train,
+#             y_train,
+#             cv=cv,
+#             n_jobs=-1,
+#             scoring="neg_mean_squared_error",
+#         )
+#     )
 
 
-print(
-    f"""Best parameters:
-- max_features={res_gp.x[0]}
-- max_depth={res_gp.x[1]}
-- min_samples_split={res_gp.x[2]}
-- min_samples_leaf={res_gp.x[3]}"""
-)
+# n_calls = 100
+# res_gp = gp_minimize(
+#     objective,
+#     space,
+#     n_calls=n_calls,
+#     random_state=SEED,
+#     callback=[tqdm_skopt(total=n_calls, desc="Gaussian Process")],
+# )
 
-# - max_features=8
-# - max_depth=104
-# - min_samples_split=2
-# - min_samples_leaf=1
-#%%
-plot_convergence(res_gp)
-plot_evaluations(res_gp)
-plot_objective(res_gp)
+# print(
+#     f"""Best parameters:
+# - max_features={res_gp.x[0]}
+# - min_samples_split={res_gp.x[1]}
+# - min_samples_leaf={res_gp.x[2]}"""
+# )
+# # - max_depth={res_gp.x[1]}
+
+# #%%
+# plot_convergence(res_gp)
+# plot_evaluations(res_gp)
+# plot_objective(res_gp)
 
 # ------------------- Training ---------------------------------------------- #
 #%%
 
-rf = RandomForestRegressor(n_estimators=2500, n_jobs=-1, random_state=SEED, criterion="mse", verbose=2, oob_score=True,)
+rf = RandomForestRegressor(
+    n_estimators=2500,
+    n_jobs=-1,
+    max_features=30,
+    max_depth=None,
+    min_samples_split=7,
+    min_samples_leaf=6,
+    random_state=SEED,
+    criterion="mse",
+    verbose=1,
+    oob_score=True,
+)
 rf.fit(x_train, y_train)
 
 
@@ -192,8 +219,8 @@ rf.fit(x_train, y_train)
 #%%
 
 # Predict on test set and reshape pred and true
-y_pred = np.exp(scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1)))
-y_true = np.exp(y_test).reshape(-1, 1)
+y_pred = scaler_y.inverse_transform(rf.predict(x_test).reshape(-1, 1))
+y_true = y_test.reshape(-1, 1)
 # Calculate metrics
 # r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
 #                                        .reshape(1, -1)))[0][0]
@@ -210,14 +237,23 @@ ccc = lin_ccc(y_true, y_pred)
 fig, ax = plt.subplots(figsize=(8, 8))
 ax.scatter(y_true, y_pred, c=colors[0])
 ax.plot(
-    [y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, label="1:1 line", c=colors[1],
+    [y_true.min(), y_true.max()],
+    [y_true.min(), y_true.max()],
+    "--",
+    lw=2,
+    label="1:1 line",
+    c=colors[1],
 )
-ax.set_xlabel("Actual")
+ax.set_xlabel("True")
 ax.set_ylabel("Predicted")
 # Regression line
 y_true1, y_pred1 = y_true.reshape(-1, 1), y_pred.reshape(-1, 1)
 ax.plot(
-    y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2, label="Trend",
+    y_true1,
+    LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
+    c=colors[2],
+    lw=2,
+    label="Trend",
 )
 ax.legend(loc="upper left")
 ax.text(
@@ -240,10 +276,113 @@ sub_ax = plt.axes([0.45, 0.45, 0.5, 0.5])
 sub_ax.scatter(y_true, y_pred, c=colors[0], s=10)
 sub_ax.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], "--", lw=2, c=colors[1])
 sub_ax.plot(
-    y_true1, LinearRegression().fit(y_true1, y_pred1).predict(y_true1), c=colors[2], lw=2,
+    y_true1,
+    LinearRegression().fit(y_true1, y_pred1).predict(y_true1),
+    c=colors[2],
+    lw=2,
 )
 sub_ax.set_xlim([0, 60])
 sub_ax.set_ylim([0, 60])
 
 plt.show()
+
+#%%
+
+# Predict on train set and reshape pred and true
+y_pred = scaler_y.inverse_transform(rf.predict(x_train).reshape(-1, 1))
+y_true = scaler_y.inverse_transform(y_train.reshape(-1, 1))
+# Calculate metrics
+# r2 = np.exp(scaler_y.inverse_transform(rf.score(x_test, y_test)
+#                                        .reshape(1, -1)))[0][0]
+r2 = r2_score(y_true, y_pred)
+mse = mean_squared_error(y_true, y_pred)
+me = mean_error(y_true, y_pred)
+mec = model_efficiency_coefficient(y_true, y_pred)
+ccc = lin_ccc(y_true, y_pred)
+
+
+# %%
+feature_names = pd.read_csv(DATA_DIR.joinpath("feature_names_mlp_rf.csv"), index_col=0)
+
+explainer = lime.lime_tabular.LimeTabularExplainer(
+    x_train, feature_names=feature_names.feature_name.to_list(), class_names=["SOC"], verbose=True, mode="regression"
+)
+
+#%%
+ii = [50, 100, 150, 200]
+exp = [explainer.explain_instance(x_test[i], rf.predict, num_features=5) for i in ii]
+# exp.show_in_notebook(show_table=True)
+
+for i in range(len(ii)):
+    with plt.style.context("ggplot"):
+        exp[i].as_pyplot_figure()
+
+
+# %%
+# MAP
+import geopandas as gpd
+import matplotlib as mpl
+from matplotlib import cm
+import matplotlib.colors as colors
+import matplotlib.cbook as cbook
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import cartopy.io.shapereader as shpreader
+
+mpl.rcParams.update({"lines.linewidth": 1, "font.family": "serif",
+                     "xtick.labelsize": "small", "ytick.labelsize": "small",
+                     "xtick.major.size": 0, "xtick.minor.size": 0,
+                     "ytick.major.size": 0, "ytick.minor.size": 0,
+                     "axes.titlesize": "medium", "figure.titlesize": "medium",
+                     "figure.figsize": (5, 5), "figure.dpi": 450,
+                     "figure.autolayout": True, "savefig.format": "pdf",
+                     "savefig.transparent": True, "image.cmap": "seismic_r"})
+
+#%%
+full_data = np.vstack((train_data, test_data))
+X = full_data[:, 3:]
+y = full_data[:, 0].reshape(-1,1)
+X = scaler_x.fit_transform(X)
+y_pred = scaler_y.inverse_transform(rf.predict(X).reshape(-1, 1))
+y_pred_coords = np.hstack((y_pred, full_data[:, 1:3]))
+gdf = gpd.GeoDataFrame(y_pred_coords[:, 0], geometry = gpd.points_from_xy(y_pred_coords[:, 2], y_pred_coords[:, 1]), crs = "EPSG:4326")
+gdf.insert(1, "True", y)
+gdf.insert(2, "Difference", y_pred - y)
+gdf.rename(columns={0: "Prediction"}, inplace=True)
+
+
+# %%
+# get country borders
+shpfilename = shpreader.natural_earth(resolution = "10m", category = "cultural", name = "admin_0_countries")
+# read the shp
+shape = gpd.read_file(shpfilename)
+# extract germany geom
+poly = shape.loc[shape['ADMIN'] == 'Germany']['geometry'].values[0]
+# create fig, ax
+fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection=ccrs.EuroPP()))
+# add geometries and features
+ax.coastlines(resolution="10m", alpha = 0.3)
+ax.add_feature(cfeature.BORDERS, alpha = 0.3)
+ax.add_geometries(poly, crs=ccrs.PlateCarree(), facecolor = "none", edgecolor = '0.5')
+# convert gpd to same proj as cartopy map
+crs_proj4 = ccrs.EuroPP().proj4_init
+gdf_utm32 = gdf.to_crs(crs_proj4)
+# Plot
+gdf_utm32.plot(ax = ax, marker = ".", markersize = 10, column = "Difference", legend = True, norm=colors.CenteredNorm(), cmap="seismic_r")
+# set extent of map
+ax.set_extent([5.5, 15.5, 46.5, 55.5], crs=ccrs.PlateCarree())
+# fix axes pos
+map_ax = fig.axes[0]
+leg_ax = fig.axes[1]
+map_box = map_ax.get_position()
+leg_box = leg_ax.get_position()
+leg_ax.set_position([leg_box.x0, map_box.y0, leg_box.width, map_box.height])
+# map_ax.set_title("Sample distribution", pad = 10)
+leg_ax.set_title("Error (g/kg)", pad = 10)
+
+# save and show fig
+# plt.savefig(os.path.join(fig_path, "sample_distribution_soc3.pdf"), bbox_inches = 'tight', pad_inches = 0)
+plt.show()
+
 # %%
